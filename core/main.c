@@ -197,7 +197,7 @@ int main(int argc, const char* argv[]) {
 	if (db_res != SQLITE_OK)
 		g_debug("cannot open sqlite db!\n");
 
-//	g_free(config_path);
+	g_free(config_path);
 
 	sqlite3_close(db);
 
