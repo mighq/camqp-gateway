@@ -1,0 +1,6 @@
+win32
+
+debug
+
+bin/*
+obj/*.o
