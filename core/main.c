@@ -1,205 +1,147 @@
-#include <glib.h>
+#include <glib.h> // GLib framework
+#include <glib/gprintf.h> // UTF-8 printf
 
-#ifdef G_OS_UNIX
-#include <unistd.h>
-#endif
+#include <signal.h> // signals
+#include <stdlib.h> // exit
+#include <locale.h> // locales
 
-// !!!pouzi subsystem console vo win32
+GMutex* g_lck_termination;
+gboolean g_termination = FALSE;
 
-#include "api/manager_interface.h"
+GCond* g_cnd_t1 = NULL;
+GMutex* g_lck_t1 = NULL;
 
-#include <gmodule.h>
-#include <sqlite3.h>
+GCond* g_cnd_t2 = NULL;
+GMutex* g_lck_t2 = NULL;
 
-gpointer Func2(gpointer data) {
-	g_debug("Func2");
+void signal_handler(int signum)
+{
+	g_printf("Handling signal %d\n", signum);
 
-	// attach to queue
-	GAsyncQueue* q1 = g_async_queue_ref(data);
+	// check for termination
+	g_mutex_lock(g_lck_termination);
+	g_termination = TRUE;
+	g_mutex_unlock(g_lck_termination);
 
-	// fill queue
-	g_async_queue_push(q1, (gpointer) 123);
-	g_async_queue_push(q1, (gpointer) 135);
-	g_async_queue_push(q1, (gpointer) 198);
+	// send break of delay to each thread
+	g_mutex_lock(g_lck_t1);
+	g_cond_signal(g_cnd_t1);
+	g_mutex_unlock(g_lck_t1);
 
-	// free queue ref
-	g_async_queue_unref(q1);
+	g_mutex_lock(g_lck_t2);
+	g_cond_signal(g_cnd_t2);
+	g_mutex_unlock(g_lck_t2);
+}
+
+gpointer Func1(gpointer data) {
+	while (TRUE) {
+		// do what is needed
+		g_printf("F1\n");
+
+		// sleep
+		GTimeVal delay;
+		g_get_current_time(&delay);
+		g_time_val_add(&delay, 5000000);
+		g_mutex_lock(g_lck_t1);
+		g_cond_timed_wait(g_cnd_t1, g_lck_t1, &delay);
+		g_mutex_unlock(g_lck_t1);
+
+		// check for termination
+		g_mutex_lock(g_lck_termination);
+		if (g_termination) {
+			g_mutex_unlock(g_lck_termination);
+			break;
+		}
+		g_mutex_unlock(g_lck_termination);
+	}
+
+	g_printf("EO T1\n");
 
 	return NULL;
 }
 
-gpointer Func1(gpointer data) {
-	g_debug("Func1");
+gpointer Func2(gpointer data) {
+	while (TRUE) {
+		// do what is needed
+		g_printf("F2\n");
 
-	// attach to queue
-	GAsyncQueue* q1 = g_async_queue_ref(data);
+		// sleep
+		GTimeVal delay;
+		g_get_current_time(&delay);
+		g_time_val_add(&delay, 2000000);
+		g_mutex_lock(g_lck_t2);
+		g_cond_timed_wait(g_cnd_t2, g_lck_t2, &delay);
+		g_mutex_unlock(g_lck_t2);
 
-	// fill queue
-	g_async_queue_push(q1, (gpointer) 22);
-	g_async_queue_push(q1, (gpointer) 16);
-	g_async_queue_push(q1, (gpointer) 99);
+		// check for termination
+		g_mutex_lock(g_lck_termination);
+		if (g_termination) {
+			g_mutex_unlock(g_lck_termination);
+			break;
+		}
+		g_mutex_unlock(g_lck_termination);
+	}
 
-	// free queue ref
-	g_async_queue_unref(q1);
+	g_printf("EO T2\n");
 
 	return NULL;
 }
 
 int main(int argc, const char* argv[]) {
-	// check plugin support
-	if (!g_module_supported())
-		return 1;
+	setlocale(LC_ALL, "C.UTF-8");
 
-	LoadManagerModuleFunc	plugin_load;
-	UnloadManagerModuleFunc	plugin_unload;
-	GModule*				plugin;
+	// setup signal handling
+	struct sigaction signal;
+	signal.sa_handler = signal_handler;
+	sigemptyset(&signal.sa_mask);
+	signal.sa_flags = 0;
 
-	gchar* program_bin;
-
-#ifdef G_OS_WIN32
-	program_bin = g_find_program_in_path(g_get_prgname());
-#endif
-#ifdef G_OS_UNIX
-	program_bin = g_file_read_link("/proc/self/exe", NULL);
-	if (program_bin == NULL) {
-		g_error("Cannot determine executable path!");
-		return 1;
-	}
-#endif
-	g_debug("%s", program_bin);
-
-	gchar* program_dir = g_path_get_dirname(program_bin);
-	g_free(program_bin);
-
-	gchar* plugin_dir = g_build_filename(program_dir, "plugins", NULL);
-
-	gchar* plugin_file = g_build_path(".", "in_sample", G_MODULE_SUFFIX, NULL);
-	gchar* plugin_path = g_build_filename(plugin_dir, plugin_file, NULL);
-	g_free(plugin_file);
-	g_free(plugin_dir);
-
-	plugin = g_module_open(plugin_path, G_MODULE_BIND_LAZY);
-	g_debug("%s", plugin_path);
-	g_free(plugin_path);
-	if (!plugin) {
-		g_error("%s", g_module_error());
-		return 2;
-	}
-
-	if (!g_module_symbol(plugin, "LoadManagerModule", (gpointer*) &plugin_load)) {
-		g_error("%s", g_module_error());
-
-		if (!g_module_close(plugin))
-			g_warning("%s", g_module_error());
-
-		return 3;
-	} else {
-		if (plugin_load == NULL) {
-			g_error("Plugin load symbol is NULL!");
-
-			if (!g_module_close(plugin))
-				g_warning("%s", g_module_error());
-
-			return 4;
-		}
-	}
-
-	if (!g_module_symbol(plugin, "UnloadManagerModule", (gpointer*) &plugin_unload)) {
-		g_error("%s", g_module_error());
-
-		if (!g_module_close(plugin))
-			g_warning("%s", g_module_error());
-
-		return 5;
-	} else {
-		if (plugin_unload == NULL) {
-			g_error("Plugin unload symbol is NULL!");
-
-			if (!g_module_close(plugin))
-				g_warning("%s", g_module_error());
-
-			return 6;
-		}
-	}
-
-	manager_interface* plugin_input_info = plugin_load();
-	if (plugin_input_info != NULL) {
-		g_debug(
-			"%d.%d %d %d",
-				plugin_input_info->version.major,
-				plugin_input_info->version.minor,
-				plugin_input_info->direction,
-				plugin_input_info->transfer_content_type
-		);
-
-		plugin_unload();
-	} else {
-		g_error("Error getting plugin info!");
-
-		if (!g_module_close(plugin))
-			g_warning("%s", g_module_error());
-
-		return 7;
-	}
-
-	if (!g_module_close(plugin))
-		g_warning("%s", g_module_error());
+	sigaction(SIGHUP,  &signal, NULL);
+	sigaction(SIGINT,  &signal, NULL);
+	sigaction(SIGQUIT, &signal, NULL);
+	sigaction(SIGTERM, &signal, NULL);
+	sigaction(SIGUSR1, &signal, NULL);
+	sigaction(SIGUSR2, &signal, NULL);
 
 	// init threads
-	if (!g_thread_supported())
+	#ifndef G_THREADS_ENABLED
+	#error "Threads not supported by GLib!"
+	#endif
+	#ifdef G_THREADS_IMPL_NONE
+	#error "No threads implementation in GLib!"
+	#endif
+	if (!g_thread_get_initialized()) {
 		g_thread_init(NULL);
+		if (!g_thread_get_initialized()) {
+			g_printerr("GLib Threading cannot be initialized!");
+			exit(1);
+		}
+	}
 
-	// init queue
-	GAsyncQueue* q1 = g_async_queue_new();
+	// init conditions & mutexes
+	g_lck_termination = g_mutex_new();
+	g_lck_t1 = g_mutex_new();
+	g_cnd_t1 = g_cond_new();
+	g_lck_t2 = g_mutex_new();
+	g_cnd_t2 = g_cond_new();
 
-	// start & wait for filler
-	GThread* t1 = g_thread_create(Func1, q1, TRUE, NULL);
-	GThread* t2 = g_thread_create(Func2, q1, TRUE, NULL);
+	// start & wait
+	GThread* t1 = g_thread_create(Func1, NULL, TRUE, NULL);
+	GThread* t2 = g_thread_create(Func2, NULL, TRUE, NULL);
+
+	g_printf("F0\n");
+
 	g_thread_join(t1);
 	g_thread_join(t2);
 
-	// print queue contents
-	guint x;
+	// cleanup conditions & mutexes
+	g_cond_free(g_cnd_t1);
+	g_mutex_free(g_lck_t1);
+	g_cond_free(g_cnd_t2);
+	g_mutex_free(g_lck_t2);
+	g_mutex_free(g_lck_termination);
 
-	x = (guint) g_async_queue_pop(q1);
-	g_debug("%d", x);
-	g_debug("%d", g_async_queue_length(q1));
-
-	x = (guint) g_async_queue_pop(q1);
-	g_debug("%d", x);
-	g_debug("%d", g_async_queue_length(q1));
-
-	x = (guint) g_async_queue_pop(q1);
-	g_debug("%d", x);
-	g_debug("%d", g_async_queue_length(q1));
-
-	// free queue
-	g_async_queue_unref(q1);
-
-	// strings
-	GString* str = g_string_new("Piecka");
-
-	g_debug("%d:%s", str->len, str->str);
-
-	g_string_append(str, " Presmahnuta");
-
-	g_debug("%d:%s", str->len, str->str);
-
-	g_string_free(str, TRUE);
-
-	// sqlite
-	sqlite3* db;
-
-	gchar* config_path = g_build_filename(program_dir, "config.db", NULL);
-	g_free(program_dir);
-
-	gint db_res = sqlite3_open(config_path, &db);
-	if (db_res != SQLITE_OK)
-		g_debug("cannot open sqlite db!\n");
-
-	g_free(config_path);
-
-	sqlite3_close(db);
+	g_printf("ENDING\n");
 
 	return 0;
 }

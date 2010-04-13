@@ -52,7 +52,7 @@ clean:
 
 test: ${TARGET}
 	@echo "---===---"
-	@${TARGET}
+	@LANG="C.UTF-8" ${TARGET}
 
 check: ${TARGET}
-	@valgrind --tool=memcheck --leak-check=full --suppressions=${DIR_DEBUG}/suppress_glib.dat ${TARGET}
+	@valgrind --tool=memcheck --leak-check=full --show-reachable=yes --suppressions=${DIR_DEBUG}/suppress_glib.dat ${TARGET}
