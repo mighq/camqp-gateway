@@ -1,2 +1,7 @@
->=glib-2.20.5
->=sqlite-3.6.21
+# stable gentoo
+>=glib-2.22.4
+>=sqlite-3.6.22
+
+# stable debian (lenny)
+>=glib-2.16.6 [libglib2.0-0]
+>=sqlite-3.5.9 [libsqlite3-0]

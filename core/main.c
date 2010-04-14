@@ -88,21 +88,6 @@ gpointer Func2(gpointer data) {
 }
 
 int main(int argc, const char* argv[]) {
-	setlocale(LC_ALL, "C.UTF-8");
-
-	// setup signal handling
-	struct sigaction signal;
-	signal.sa_handler = signal_handler;
-	sigemptyset(&signal.sa_mask);
-	signal.sa_flags = 0;
-
-	sigaction(SIGHUP,  &signal, NULL);
-	sigaction(SIGINT,  &signal, NULL);
-	sigaction(SIGQUIT, &signal, NULL);
-	sigaction(SIGTERM, &signal, NULL);
-	sigaction(SIGUSR1, &signal, NULL);
-	sigaction(SIGUSR2, &signal, NULL);
-
 	// init threads
 	#ifndef G_THREADS_ENABLED
 	#error "Threads not supported by GLib!"
@@ -117,6 +102,22 @@ int main(int argc, const char* argv[]) {
 			exit(1);
 		}
 	}
+
+	// locales
+	setlocale(LC_ALL, "C.UTF-8");
+
+	// setup signal handling
+	struct sigaction signal;
+	signal.sa_handler = signal_handler;
+	sigemptyset(&signal.sa_mask);
+	signal.sa_flags = 0;
+
+	sigaction(SIGHUP,  &signal, NULL);
+	sigaction(SIGINT,  &signal, NULL); // CTRL+C [stty intr "^C"]
+	sigaction(SIGQUIT, &signal, NULL); // CTRL+\ [stty quit "^\\"]
+	sigaction(SIGTERM, &signal, NULL);
+	sigaction(SIGUSR1, &signal, NULL);
+	sigaction(SIGUSR2, &signal, NULL);
 
 	// init conditions & mutexes
 	g_lck_termination = g_mutex_new();

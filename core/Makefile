@@ -50,9 +50,25 @@ clean:
 	rm -rf ${TARGET}
 	rm -rf ${DIR_OBJ}
 
-test: ${TARGET}
+# testing
+test-env:
 	@echo "---===---"
-	@LANG="C.UTF-8" ${TARGET}
+	@stty -ctlecho
+	@stty intr "^C"
+	@stty quit "^\\"
+	export LANG="C.UTF-8"
 
-check: ${TARGET}
+test: ${TARGET} test-env
+	@echo "---===---"
+	@${TARGET}
+
+check: ${TARGET} test-env
+	@echo "---===---"
+	@valgrind --tool=memcheck --leak-check=full --show-reachable=yes ${TARGET}
+	echo "poss :  744 in   3"
+	echo "reach: 9098 in 134"
+
+check-supp: ${TARGET} test-env
+	@echo "---===---"
 	@valgrind --tool=memcheck --leak-check=full --show-reachable=yes --suppressions=${DIR_DEBUG}/suppress_glib.dat ${TARGET}
+	echo "suppressed: 9842 in 137"
