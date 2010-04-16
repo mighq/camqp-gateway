@@ -67,20 +67,19 @@ clean:
 
 # testing
 test-env:
-	@echo "---===---"
+	@echo "---=ENV=---"
 	@stty -ctlecho
 	@stty intr "^C"
 	@stty quit "^\\"
-	export LANG="C.UTF-8"
 
 test: ${TARGET} test-env
 	@echo "---===---"
 	@${TARGET} ${TEST_OPTIONS}
 
 check: ${TARGET} test-env
-	@echo "---===---"
-	@valgrind --tool=memcheck --leak-check=full --show-reachable=yes ${TARGET} ${TEST_OPTIONS}
+	@echo "---=TEST=---"
+	@LANG=C.UTF-8 G_SLICE=always-malloc G_DEBUG=gc-friendly valgrind --tool=memcheck --leak-check=full --show-reachable=yes --leak-resolution=high --num-callers=20 ${TARGET} ${TEST_OPTIONS}
 
-check-supp: ${TARGET} test-env
-	@echo "---===---"
-	@valgrind --tool=memcheck --leak-check=full --show-reachable=yes --suppressions=${DIR_DEBUG}/suppress_glib.dat ${TARGET} ${TEST_OPTIONS}
+#check-supp: ${TARGET} test-env
+#	@echo "---===---"
+#	@valgrind --tool=memcheck --leak-check=full --show-reachable=yes --suppressions=${DIR_DEBUG}/suppress_glib.dat ${TARGET} ${TEST_OPTIONS}
