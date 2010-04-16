@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wirep major="0" minor="1">
+	<class name="properties" code="0x01" label="">
+		<struct name="format" code="0x01">
+			<field name="class-code" type="uint8" required="true"/>
+			<field name="struct-code" type="uint8" required="true"/>
+
+			<field name="version-major" type="uint8" required="true"/>
+			<field name="version-minor" type="uint8" required="true"/>
+		</struct>
+	</class>
+
+	<class name="messaging" code="0x02" label="">
+		<struct name="request" code="0x01" pack="1">
+			<field name="message-id" type="uuid" label="message identifier" required="true"/>
+			<field name="format" type="properties.format" label="format identifier"/>
+			<field name="data" type="vbin32" label="message payload" required="true"/>
+		</struct>
+
+		<struct name="reply" code="0x02" pack="1">
+			<field name="message-id" type="uuid" label="message identifier" required="true"/>
+			<field name="correlation-id" type="uuid" label="message correlation identifier" required="true"/>
+			<field name="format" type="properties.format" label="format identifier"/>
+			<field name="data" type="vbin32" label="message payload" required="true"/>
+		</struct>
+
+		<struct name="batch-begin" code="0x03"></struct>
+
+		<struct name="batch-end" code="0x04"></struct>
+
+	</class>
+</wirep>

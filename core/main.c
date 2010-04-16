@@ -1,148 +1,112 @@
-#include <glib.h> // GLib framework
-#include <glib/gprintf.h> // UTF-8 printf
+#include <glib.h>			// GLib framework
+#include <glib/gprintf.h>	// UTF-8 printf
 
-#include <signal.h> // signals
-#include <stdlib.h> // exit
-#include <locale.h> // locales
+#include "global.h"
+#include "module.h"
+#include "init_destroy.h"
+#include "config.h"
 
-GMutex* g_lck_termination;
-gboolean g_termination = FALSE;
+gboolean core_treat_cmd_options(gint argc, gchar** argv, GError** error) {
+	*error = NULL;
 
-GCond* g_cnd_t1 = NULL;
-GMutex* g_lck_t1 = NULL;
+	// setup option variables
+	gchar* cmd_option_config = NULL;
+	gchar* cmd_option_modules = NULL;
 
-GCond* g_cnd_t2 = NULL;
-GMutex* g_lck_t2 = NULL;
+	// setup option entries
+	GOptionEntry cmd_options[] =
+	{
+		{ "config", 'c', 0, G_OPTION_ARG_STRING, &cmd_option_config, "Use specified configuration module [db_sqlite]", NULL },
+		{ "modules", 'm', 0, G_OPTION_ARG_STRING, &cmd_option_modules, "Path to modules directory [PROGRAM_BIN/modules]", NULL },
+		{ NULL }
+	};
 
-void signal_handler(int signum)
-{
-	g_printf("Handling signal %d\n", signum);
+	// parse
+	GOptionContext* cli_context;
+	cli_context = g_option_context_new(NULL);
+	g_option_context_add_main_entries(cli_context, cmd_options, NULL);
+	if (!g_option_context_parse(cli_context, &argc, &argv, error)) {
+		g_option_context_free(cli_context);
+		return FALSE;
+	}
+	g_option_context_free(cli_context);
 
-	// check for termination
-	g_mutex_lock(g_lck_termination);
-	g_termination = TRUE;
-	g_mutex_unlock(g_lck_termination);
+	// set defaults
+	if (cmd_option_config == NULL)
+		cmd_option_config = g_strdup("db_sqlite");
 
-	// send break of delay to each thread
-	g_mutex_lock(g_lck_t1);
-	g_cond_signal(g_cnd_t1);
-	g_mutex_unlock(g_lck_t1);
-
-	g_mutex_lock(g_lck_t2);
-	g_cond_signal(g_cnd_t2);
-	g_mutex_unlock(g_lck_t2);
-}
-
-gpointer Func1(gpointer data) {
-	while (TRUE) {
-		// do what is needed
-		g_printf("F1\n");
-
-		// sleep
-		GTimeVal delay;
-		g_get_current_time(&delay);
-		g_time_val_add(&delay, 5000000);
-		g_mutex_lock(g_lck_t1);
-		g_cond_timed_wait(g_cnd_t1, g_lck_t1, &delay);
-		g_mutex_unlock(g_lck_t1);
-
-		// check for termination
-		g_mutex_lock(g_lck_termination);
-		if (g_termination) {
-			g_mutex_unlock(g_lck_termination);
-			break;
-		}
-		g_mutex_unlock(g_lck_termination);
+	if (cmd_option_modules == NULL) {
+		cmd_option_modules = g_strdup("modules");
 	}
 
-	g_printf("EO T1\n");
+	// treat specified params
 
-	return NULL;
-}
+	// modules directory
+	if (!g_path_is_absolute(cmd_option_modules)) {
+		// modules, modify to full path
+		gchar* program_bin = NULL;
 
-gpointer Func2(gpointer data) {
-	while (TRUE) {
-		// do what is needed
-		g_printf("F2\n");
-
-		// sleep
-		GTimeVal delay;
-		g_get_current_time(&delay);
-		g_time_val_add(&delay, 2000000);
-		g_mutex_lock(g_lck_t2);
-		g_cond_timed_wait(g_cnd_t2, g_lck_t2, &delay);
-		g_mutex_unlock(g_lck_t2);
-
-		// check for termination
-		g_mutex_lock(g_lck_termination);
-		if (g_termination) {
-			g_mutex_unlock(g_lck_termination);
-			break;
+#ifdef G_OS_UNIX
+		program_bin = g_file_read_link("/proc/self/exe", NULL);
+		if (program_bin == NULL) {
+			g_set_error(error, 0, 0, "Cannot determine executable path!");
+			return FALSE;
 		}
-		g_mutex_unlock(g_lck_termination);
+#else
+		#error "TODO: not x-platform"
+#endif
+
+		gchar* program_dir = g_path_get_dirname(program_bin);
+		g_free(program_bin);
+
+		gchar* modules_dir = g_build_filename(program_dir, cmd_option_modules, NULL);
+		g_free(program_dir);
+		g_free(cmd_option_modules);
+		cmd_option_modules = modules_dir;
 	}
 
-	g_printf("EO T2\n");
+	// save command line options to global hash
+	g_hash_table_insert(g_options, "config",	cmd_option_config);
+	g_hash_table_insert(g_options, "modules",	cmd_option_modules);
 
-	return NULL;
+	return TRUE;
 }
 
-int main(int argc, const char* argv[]) {
-	// init threads
-	#ifndef G_THREADS_ENABLED
-	#error "Threads not supported by GLib!"
-	#endif
-	#ifdef G_THREADS_IMPL_NONE
-	#error "No threads implementation in GLib!"
-	#endif
-	if (!g_thread_get_initialized()) {
-		g_thread_init(NULL);
-		if (!g_thread_get_initialized()) {
-			g_printerr("GLib Threading cannot be initialized!");
-			exit(1);
-		}
+int main(gint argc, gchar* argv[]) {
+	GError* err = NULL;
+
+	// check for feature support
+	if (!g_module_supported())
+		return 1;
+
+	// initialize
+	core_init();
+
+	// treat cmd-line options
+	if (!core_treat_cmd_options(argc, argv, &err)) {
+		g_print("%s\n", err->message);
+		g_error_free(err);
+		core_destroy();
+		return 3;
 	}
 
-	// locales
-	setlocale(LC_ALL, "C.UTF-8");
+	// init config
+	if (!core_config_init()) {
+		g_print("Cannot initialize config module!\n");
+		core_destroy();
+		return 4;
+	}
 
-	// setup signal handling
-	struct sigaction signal;
-	signal.sa_handler = signal_handler;
-	sigemptyset(&signal.sa_mask);
-	signal.sa_flags = 0;
+	// do config preloading
+	core_config_preload();
 
-	sigaction(SIGHUP,  &signal, NULL);
-	sigaction(SIGINT,  &signal, NULL); // CTRL+C [stty intr "^C"]
-	sigaction(SIGQUIT, &signal, NULL); // CTRL+\ [stty quit "^\\"]
-	sigaction(SIGTERM, &signal, NULL);
-	sigaction(SIGUSR1, &signal, NULL);
-	sigaction(SIGUSR2, &signal, NULL);
+	g_print("%s\n", core_config_get_text("pela", "hopa"));
 
-	// init conditions & mutexes
-	g_lck_termination = g_mutex_new();
-	g_lck_t1 = g_mutex_new();
-	g_cnd_t1 = g_cond_new();
-	g_lck_t2 = g_mutex_new();
-	g_cnd_t2 = g_cond_new();
+	// destroy config
+	core_config_destroy();
 
-	// start & wait
-	GThread* t1 = g_thread_create(Func1, NULL, TRUE, NULL);
-	GThread* t2 = g_thread_create(Func2, NULL, TRUE, NULL);
-
-	g_printf("F0\n");
-
-	g_thread_join(t1);
-	g_thread_join(t2);
-
-	// cleanup conditions & mutexes
-	g_cond_free(g_cnd_t1);
-	g_mutex_free(g_lck_t1);
-	g_cond_free(g_cnd_t2);
-	g_mutex_free(g_lck_t2);
-	g_mutex_free(g_lck_termination);
-
-	g_printf("ENDING\n");
+	// do cleanup
+	core_destroy();
 
 	return 0;
 }

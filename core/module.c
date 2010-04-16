@@ -1,0 +1,158 @@
+#include "module.h"
+
+#include "global.h"
+
+gchar* core_module_file(module_type type, gchar* name) {
+	// prefixes for various module types (indexes correspond to "module_type" enum)
+	gchar* module_prefixes[4] = {
+		"cfg",
+		"que",
+		"in",
+		"out"
+	};
+
+	// build file name
+	gchar* plugin_file = g_strdup_printf(
+			"%s_%s.%s",
+				module_prefixes[type],
+				name,
+				G_MODULE_SUFFIX
+	);
+	gchar* plugin_path = g_build_filename(
+			(gchar*) g_hash_table_lookup(g_options, "modules"),
+			plugin_file,
+			NULL
+	);
+	g_free(plugin_file);
+
+	return plugin_path;
+}
+
+module_loaded* core_module_load(module_type type, gchar* name, GError** error) {
+	module_loaded*		module;
+
+	GModule*			plugin;
+	LoadModuleFunc		plugin_load;
+	UnloadModuleFunc	plugin_unload;
+
+	*error = NULL;
+
+	// get plugin path
+	gchar* plugin_path = core_module_file(type, name);
+
+	// try to load module
+	plugin = g_module_open(plugin_path, G_MODULE_BIND_LAZY);
+	if (!plugin) {
+		g_set_error(error, 0, 0, "Cannot open module file '%s'!", plugin_path);
+		g_free(plugin_path);
+		return NULL;
+	}
+
+	// find load
+	if (!g_module_symbol(plugin, "LoadModule", (gpointer*) &plugin_load)) {
+		g_set_error(error, 0, 0, "%s", g_module_error());
+
+		if (!g_module_close(plugin))
+			g_warning("%s", g_module_error());
+
+		return NULL;
+	} else {
+		if (plugin_load == NULL) {
+			g_set_error(error, 0, 0, "Plugin 'LoadModule' symbol is not present!");
+
+			if (!g_module_close(plugin))
+				g_warning("%s", g_module_error());
+
+			return NULL;
+		}
+	}
+
+	// find unload (just to be sure, that exists)
+	if (!g_module_symbol(plugin, "UnloadModule", (gpointer*) &plugin_unload)) {
+		g_set_error(error, 0, 0, "%s", g_module_error());
+
+		if (!g_module_close(plugin))
+			g_warning("%s", g_module_error());
+
+		return NULL;
+	} else {
+		if (plugin_unload == NULL) {
+			g_set_error(error, 0, 0, "Plugin 'UnloadModule' symbol is not present!");
+
+			if (!g_module_close(plugin))
+				g_warning("%s", g_module_error());
+
+			return NULL;
+		}
+	}
+
+	// load info from plugin
+	module_info* plugin_info = plugin_load();
+	if (plugin_info == NULL) {
+		g_set_error(error, 0, 0, "Error getting plugin info!");
+
+		if (!g_module_close(plugin))
+			g_warning("%s", g_module_error());
+
+		return NULL;
+	}
+
+	module = g_new0(module_loaded, 1);
+	module->module = plugin;
+	module->info = plugin_info;
+
+	g_hash_table_insert(g_modules, plugin_path, module);
+
+	return module;
+}
+
+gboolean core_module_unload(module_type type, gchar* name) {
+	// get loaded module identifier
+	gchar* plugin_path = core_module_file(type, name);
+
+	// find it between loaded modules
+	GModule* mod = g_hash_table_lookup(g_modules, plugin_path);
+	if (mod) {
+		// remove it
+		g_hash_table_remove(g_modules, plugin_path); // module will be unloaded automatically using "core_module_unload_ptr"
+		g_free(plugin_path);
+		return TRUE;
+	} else {
+		return FALSE;
+	}
+}
+
+void core_module_unload_ptr(module_loaded* data) {
+	UnloadModuleFunc	plugin_unload;
+
+	// find unload
+	if (!g_module_symbol(data->module, "UnloadModule", (gpointer*) &plugin_unload)) {
+		g_warning("%s", g_module_error());
+
+		if (!g_module_close(data->module))
+			g_warning("%s", g_module_error());
+
+		return;
+	} else {
+		if (plugin_unload == NULL) {
+			g_warning("Plugin 'UnloadModule' symbol is not present!");
+
+			if (!g_module_close(data->module))
+				g_warning("%s", g_module_error());
+
+			return;
+		}
+	}
+
+	// call plugin unload
+	plugin_unload();
+
+	// cleanup plugin reference
+	if (!g_module_close(data->module))
+		g_warning("%s", g_module_error());
+
+	// data->info will be freed in module unload
+
+	// frea module_loaded
+	g_free(data);
+}

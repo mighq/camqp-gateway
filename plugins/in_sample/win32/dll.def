@@ -1,6 +1,0 @@
-LIBRARY		in_sample.dll
-DESCRIPTION	"Sample Input Plugin for Manager"
-
-EXPORTS
-	LoadManagerModule		@1	PRIVATE
-	UnloadManagerModule		@2	PRIVATE

@@ -1,4 +1,4 @@
 debug
-
-bin/*
-obj/*.o
+tmp/*.o
+tmp/*.d
+wk

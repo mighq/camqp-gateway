@@ -1,54 +1,69 @@
 TARGET_BIN=manager
-SOURCES=main.c
+SOURCES=global.c		\
+		init_destroy.c	\
+		module.c		\
+		config.c		\
+		main.c
+
+DIR_ROOT=..
+
+DIR_API=${DIR_ROOT}/api
+DIR_DIST=${DIR_ROOT}/dist
 
 DIR_GLIB=/usr
-DIR_SQLITE=/usr
 
 # dependencies
 INCLUDES=									\
+	-I${DIR_API}							\
 	-I${DIR_GLIB}/include/glib-2.0			\
-	-I${DIR_GLIB}/lib/glib-2.0/include		\
-	-I${DIR_SQLITE}/include
+	-I${DIR_GLIB}/lib/glib-2.0/include
+
 LIBS=					\
 	-L${DIR_GLIB}/lib	\
 		-lglib-2.0		\
 		-lgthread-2.0	\
-		-lgmodule-2.0	\
-	-L${DIR_SQLITE}/lib	\
-		-lsqlite3
+		-lgmodule-2.0
 
 # environment
 CC=gcc
 CFLAGS=-Wall -O0 -ggdb
 
-DIR_BIN=bin
-DIR_OBJ=obj
+DIR_TMP=tmp
 DIR_DEBUG=debug
 
+TEST_OPTIONS=-c db_sqlite
+
 # computed parts
-OBJS=$(patsubst %.c,${DIR_OBJ}/%.o,${SOURCES})
-TARGET=${DIR_BIN}/${TARGET_BIN}
+OBJS=$(patsubst %.c,${DIR_TMP}/%.o,${SOURCES})
+DEPS=$(patsubst %.c,${DIR_TMP}/%.d,${SOURCES})
+TARGET=${DIR_DIST}/${TARGET_BIN}
 
 all: ${TARGET}
 
-${TARGET}: ${OBJS} | ${DIR_BIN}
+${TARGET}: ${OBJS} | ${DIR_DIST}
 	${CC} ${LFLAGS} -o $@ ${OBJS} ${LIBS}
 	chmod +x $@
 
-${DIR_OBJ}/%.o: %.c ${DIR_OBJ}
+${DIR_TMP}/%.d: %.c | ${DIR_TMP}
+	@${SHELL} -ec '${CC} -M ${INCLUDES} $< | sed -e "s#^$*.o#& $@#g" > $@'
+
+${DIR_TMP}/%.o: %.c | ${DIR_TMP}
 	${CC} ${CFLAGS} ${INCLUDES} -o $@ -c $<
 
-# directories creation
-${DIR_BIN}:
-	mkdir ${DIR_BIN}
+# dependencies
+-include ${DEPS}
 
-${DIR_OBJ}:
-	mkdir ${DIR_OBJ}
+# directories creation
+${DIR_DIST}:
+	mkdir ${DIR_DIST}
+
+${DIR_TMP}:
+	mkdir ${DIR_TMP}
 
 # CLEANUP
 clean:
 	rm -rf ${TARGET}
-	rm -rf ${DIR_OBJ}
+	rm -rf ${DIR_TMP}
 
 # testing
 test-env:
@@ -60,15 +75,12 @@ test-env:
 
 test: ${TARGET} test-env
 	@echo "---===---"
-	@${TARGET}
+	@${TARGET} ${TEST_OPTIONS}
 
 check: ${TARGET} test-env
 	@echo "---===---"
-	@valgrind --tool=memcheck --leak-check=full --show-reachable=yes ${TARGET}
-	echo "poss :  744 in   3"
-	echo "reach: 9098 in 134"
+	@valgrind --tool=memcheck --leak-check=full --show-reachable=yes ${TARGET} ${TEST_OPTIONS}
 
 check-supp: ${TARGET} test-env
 	@echo "---===---"
-	@valgrind --tool=memcheck --leak-check=full --show-reachable=yes --suppressions=${DIR_DEBUG}/suppress_glib.dat ${TARGET}
-	echo "suppressed: 9842 in 137"
+	@valgrind --tool=memcheck --leak-check=full --show-reachable=yes --suppressions=${DIR_DEBUG}/suppress_glib.dat ${TARGET} ${TEST_OPTIONS}
