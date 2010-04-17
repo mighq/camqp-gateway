@@ -2,108 +2,121 @@
 #include <glib/gprintf.h>	// UTF-8 printf
 
 #include "global.h"
+#include "options.h"
 #include "module.h"
-#include "init_destroy.h"
 #include "config.h"
+#include "queue.h"
 
-gboolean core_treat_cmd_options(gint argc, gchar** argv, GError** error) {
-	*error = NULL;
+#include <signal.h> // signals
+#include <locale.h>	// locales
 
-	// setup option variables
-	gchar* cmd_option_config = NULL;
-	gchar* cmd_option_modules = NULL;
+void signal_handler(int signum)
+{
+	g_print("Handling signal %d\n", signum);
+/*
+	// check for termination
+	g_mutex_lock(g_lck_termination);
+	g_termination = TRUE;
+	g_mutex_unlock(g_lck_termination);
 
-	// setup option entries
-	GOptionEntry cmd_options[] =
-	{
-		{ "config", 'c', 0, G_OPTION_ARG_STRING, &cmd_option_config, "Use specified configuration module [sqlite]", NULL },
-		{ "modules", 'm', 0, G_OPTION_ARG_STRING, &cmd_option_modules, "Path to modules directory [PROGRAM_BIN/modules]", NULL },
-		{ NULL }
-	};
+	// send break of delay to each thread
+	g_mutex_lock(g_lck_t1);
+	g_cond_signal(g_cnd_t1);
+	g_mutex_unlock(g_lck_t1);
 
-	// parse
-	GOptionContext* cli_context;
-	cli_context = g_option_context_new(NULL);
-	g_option_context_add_main_entries(cli_context, cmd_options, NULL);
-	if (!g_option_context_parse(cli_context, &argc, &argv, error)) {
-		g_option_context_free(cli_context);
-		return FALSE;
-	}
-	g_option_context_free(cli_context);
+	g_mutex_lock(g_lck_t2);
+	g_cond_signal(g_cnd_t2);
+	g_mutex_unlock(g_lck_t2);
+*/
+}
 
-	// set defaults
-	if (cmd_option_config == NULL)
-		cmd_option_config = g_strdup("sqlite");
+void core_init() {
+	// setup runtime
+	setlocale(LC_ALL, "C.UTF-8");
 
-	if (cmd_option_modules == NULL) {
-		cmd_option_modules = g_strdup("modules");
-	}
+	// setup signal handling
+	struct sigaction signal;
+	signal.sa_handler = signal_handler;
+	sigemptyset(&signal.sa_mask);
+	signal.sa_flags = 0;
 
-	// treat specified params
+	sigaction(SIGHUP,  &signal, NULL);
+	sigaction(SIGINT,  &signal, NULL); // CTRL+C [stty intr "^C"]
+	sigaction(SIGQUIT, &signal, NULL); // CTRL+\ [stty quit "^\\"]
+	sigaction(SIGTERM, &signal, NULL);
+	sigaction(SIGUSR1, &signal, NULL);
+	sigaction(SIGUSR2, &signal, NULL);
 
-	// modules directory
-	if (!g_path_is_absolute(cmd_option_modules)) {
-		// modules, modify to full path
-		gchar* program_bin = NULL;
-
-#ifdef G_OS_UNIX
-		program_bin = g_file_read_link("/proc/self/exe", NULL);
-		if (program_bin == NULL) {
-			g_set_error(error, 0, 0, "Cannot determine executable path!");
-			return FALSE;
+	// init threads
+	#ifndef G_THREADS_ENABLED
+	#error "Threads not supported by GLib!"
+	#endif
+	#ifdef G_THREADS_IMPL_NONE
+	#error "No threads implementation in GLib!"
+	#endif
+	if (!g_thread_get_initialized()) {
+		g_thread_init(NULL);
+		if (!g_thread_get_initialized()) {
+			return;
 		}
-#else
-		#error "TODO: not x-platform"
-#endif
-
-		gchar* program_dir = g_path_get_dirname(program_bin);
-		g_free(program_bin);
-
-		gchar* modules_dir = g_build_filename(program_dir, cmd_option_modules, NULL);
-		g_free(program_dir);
-		g_free(cmd_option_modules);
-		cmd_option_modules = modules_dir;
 	}
 
-	// save command line options to global hash
-	g_hash_table_insert(g_options, "config",	cmd_option_config);
-	g_hash_table_insert(g_options, "modules",	cmd_option_modules);
+	// allocate global variables
+	g_options = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
+	g_modules = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) core_module_unload_ptr);
+}
 
-	return TRUE;
+void core_destroy() {
+	// destroy global variables
+	g_hash_table_destroy(g_options);
+	g_hash_table_destroy(g_modules);
 }
 
 int main(gint argc, gchar* argv[]) {
 	GError* err = NULL;
 
-	// check for feature support
-	if (!g_module_supported())
-		return 1;
-
 	// initialize
 	core_init();
 
+	// determine essential things
+	if (!core_options_environment(&err)) {
+		g_print("%s\n", err->message);
+		g_error_free(err);
+		core_destroy();
+		return 2;
+	}
+
 	// treat cmd-line options
-	if (!core_treat_cmd_options(argc, argv, &err)) {
+	if (!core_options_treat(argc, argv, &err)) {
 		g_print("%s\n", err->message);
 		g_error_free(err);
 		core_destroy();
 		return 3;
 	}
 
-	// init config
-	if (!core_config_init()) {
-		g_print("Cannot initialize config module!\n");
+	// init config provider
+	if (!core_config_provider_init()) {
+		g_print("Cannot initialize config provider!\n");
 		core_destroy();
 		return 4;
+	}
+
+	// init queue provider
+	if (!core_queue_provider_init()) {
+		g_print("Cannot initialize queue provider!\n");
+		core_config_provider_destroy();
+		core_destroy();
+		return 5;
 	}
 
 	// do config preloading
 	core_config_preload();
 
-	g_print("%s\n", core_config_get_text("pela", "hopa"));
+	// destroy queue provider
+	core_queue_provider_destroy();
 
 	// destroy config
-	core_config_destroy();
+	core_config_provider_destroy();
 
 	// do cleanup
 	core_destroy();

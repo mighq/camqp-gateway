@@ -3,16 +3,19 @@
 
 #include <glib.h>
 
-// API functions
-#include <api_core_config.h>
+// provider interface
 #include <api_module_config.h>
 
-// private core functions
-module_vtable_config*	core_config_init();
-gboolean				core_config_destroy();
-
+// config provider functions
+module_vtable_config*	core_config_provider_init();
+gboolean				core_config_provider_destroy();
 module_vtable_config*	core_config_provider();
 
+// public config functions
+#define DLLIMPORT
+#include <api_core_config.h>
+
+// private config functions
 void					core_config_preload();
 
 #endif

@@ -2,7 +2,7 @@
 #include "global.h"
 #include "module.h"
 
-module_vtable_config* core_config_init() {
+module_vtable_config* core_config_provider_init() {
 	GError* err;
 	ConfigModuleFunc entry;
 
@@ -24,12 +24,10 @@ module_vtable_config* core_config_init() {
 	// setup vtable as config_provider
 	g_provider_config = ret;
 
-	// do initialization
-
 	return ret;
 }
 
-gboolean core_config_destroy() {
+gboolean core_config_provider_destroy() {
 	core_module_unload(MODULE_TYPE_CONFIG, g_hash_table_lookup(g_options, "config"));
 
 	return TRUE;

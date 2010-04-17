@@ -1,8 +1,9 @@
 TARGET_BIN=manager
 SOURCES=global.c		\
-		init_destroy.c	\
+		options.c		\
 		module.c		\
 		config.c		\
+		queue.c			\
 		main.c
 
 DIR_ROOT=..
@@ -26,12 +27,14 @@ LIBS=					\
 
 # environment
 CC=gcc
+LD=ld
 CFLAGS=-Wall -O0 -ggdb
+LFLAGS=-Wl,--export-dynamic
 
 DIR_TMP=tmp
 DIR_DEBUG=debug
 
-TEST_OPTIONS=-c db_sqlite
+TEST_OPTIONS=-c sqlite
 
 # computed parts
 OBJS=$(patsubst %.c,${DIR_TMP}/%.o,${SOURCES})

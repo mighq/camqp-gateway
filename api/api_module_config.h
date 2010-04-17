@@ -10,7 +10,7 @@ typedef struct {
 	gboolean	(*isset)	(gchar* group, gchar* option);
 
 	gboolean	(*get_bool)	(gchar* group, gchar* option);
-	gint32		(*get_int)	(gchar* group, gchar* option);
+	gint		(*get_int)	(gchar* group, gchar* option);
 	gfloat		(*get_real)	(gchar* group, gchar* option);
 	gchar*		(*get_text)	(gchar* group, gchar* option);
 	GByteArray*	(*get_bin)	(gchar* group, gchar* option);

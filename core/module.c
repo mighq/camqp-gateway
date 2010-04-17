@@ -2,6 +2,8 @@
 
 #include "global.h"
 
+#include <string.h>
+
 gchar* core_module_file(module_type type, gchar* name) {
 	// prefixes for various module types (indexes correspond to "module_type" enum)
 	gchar* module_prefixes[4] = {
@@ -97,10 +99,17 @@ module_loaded* core_module_load(module_type type, gchar* name, GError** error) {
 		return NULL;
 	}
 
+	// check module
+	if (plugin_info->type != type)
+		g_warning("Module has different type (%d) than requested (%d)!", plugin_info->type, type);
+
+	if (strcmp(plugin_info->name, name) != 0)
+		g_warning("Module '%s' has different name than requested ('%s')!", plugin_info->name, name);
+
+	// save to loaded modules
 	module = g_new0(module_loaded, 1);
 	module->module = plugin;
 	module->info = plugin_info;
-
 	g_hash_table_insert(g_modules, plugin_path, module);
 
 	return module;
