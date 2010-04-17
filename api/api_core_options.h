@@ -8,11 +8,16 @@
 #endif
 
 /**
+ * returns instance identifier
+ */
+DLLIMPORT guint32		core_instance();
+
+/**
  * "program"	=> program executable directory (from environment)
  *
  * "config"		=> configuration module (from command line)
  * "queue"		=> queue module (from command line)
  */
-DLLIMPORT GHashTable* core_options_get();
+DLLIMPORT GHashTable*	core_options_get();
 
 #endif

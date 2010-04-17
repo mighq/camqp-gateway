@@ -5,12 +5,12 @@
 
 //
 
-module_vtable_queue* core_queue_provider_init() {
+module_vtable_queue* core_queue_provider_init(const gchar* module_name) {
 	GError* err;
 	QueueModuleFunc entry;
 
 	// load config module
-	module_loaded* module = core_module_load(MODULE_TYPE_QUEUE, g_hash_table_lookup(g_options, "queue"), &err);
+	module_loaded* module = core_module_load(MODULE_TYPE_QUEUE, module_name, &err);
 	if (module == NULL)
 		return NULL;
 
@@ -31,8 +31,7 @@ module_vtable_queue* core_queue_provider_init() {
 }
 
 gboolean core_queue_provider_destroy() {
-	core_module_unload(MODULE_TYPE_QUEUE, g_hash_table_lookup(g_options, "queue"));
-
+	// will be destroyed with g_modules hash
 	return TRUE;
 }
 

@@ -3,6 +3,8 @@
 #include <api_module_config.h>
 #include <api_module_queue.h>
 
+guint					g_instance;
+
 GHashTable*				g_options;
 GHashTable*				g_modules;
 

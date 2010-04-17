@@ -7,7 +7,7 @@
 #include <api_module_queue.h>
 
 // queue provider functions
-module_vtable_queue*	core_queue_provider_init();
+module_vtable_queue*	core_queue_provider_init(const gchar* module_name);
 gboolean				core_queue_provider_destroy();
 
 module_vtable_queue*	core_queue_provider();

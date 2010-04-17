@@ -3,6 +3,11 @@
 #include "global.h"
 
 #include <gmodule.h>
+#include <stdlib.h> // strtoul
+
+guint32 core_instance() {
+	return g_instance;
+}
 
 GHashTable* core_options_get() {
 	return g_options;
@@ -43,28 +48,42 @@ gboolean core_options_treat(gint argc, gchar** argv, GError** error) {
 	*error = NULL;
 
 	// setup option variables
-	gchar* cmd_option_modules = NULL;
-	gchar* cmd_option_config = NULL;
-	gchar* cmd_option_queue = NULL;
+	gchar*	cmd_option_modules = NULL;
+	gchar*	cmd_option_config = NULL;
+	gchar*	cmd_option_queue = NULL;
 
 	// setup option entries
 	GOptionEntry cmd_options[] =
 	{
-		{ "modules", 'm', 0, G_OPTION_ARG_STRING, &cmd_option_modules, "Path to modules directory [PROGRAM_BIN/modules]", NULL },
-		{ "config", 'c', 0, G_OPTION_ARG_STRING, &cmd_option_config, "Use specified configuration module [sqlite]", NULL },
-		{ "queue", 'q', 0, G_OPTION_ARG_STRING, &cmd_option_queue, "Use specified queue module[memory]", NULL },
+		{ "modules",	'm', 0, G_OPTION_ARG_STRING,	&cmd_option_modules,	"Path to modules directory [PROGRAM_BIN/modules]", NULL },
+		{ "config",		'c', 0, G_OPTION_ARG_STRING,	&cmd_option_config,		"Use specified configuration module [sqlite]", NULL },
 		{ NULL }
 	};
 
 	// parse
 	GOptionContext* cli_context;
-	cli_context = g_option_context_new(NULL);
+	cli_context = g_option_context_new("instance_id");
 	g_option_context_add_main_entries(cli_context, cmd_options, NULL);
 	if (!g_option_context_parse(cli_context, &argc, &argv, error)) {
 		g_option_context_free(cli_context);
 		return FALSE;
 	}
 	g_option_context_free(cli_context);
+
+	// get non-option arguments
+	if (argc >= 2) {
+		// treat only first argument as INSTANCE_ID
+		if (!g_regex_match_simple("^\\d+$", argv[1], 0, 0)) {
+			g_set_error(error, 0, 0, "Instance identifier must be non-negative number!");
+			return FALSE;
+		}
+
+		// save instance identifier
+		g_instance = strtoul(argv[1], NULL, 10);
+	} else {
+		g_set_error(error, 0, 0, "Instance identifier must be specifed as an argument!");
+		return FALSE;
+	}
 
 	// set defaults
 	if (cmd_option_modules == NULL)

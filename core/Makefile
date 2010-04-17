@@ -34,7 +34,7 @@ LFLAGS=-Wl,--export-dynamic
 DIR_TMP=tmp
 DIR_DEBUG=debug
 
-TEST_OPTIONS=-c sqlite
+TEST_OPTIONS=-c sqlite 0
 
 # computed parts
 OBJS=$(patsubst %.c,${DIR_TMP}/%.o,${SOURCES})

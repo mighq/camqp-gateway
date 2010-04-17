@@ -101,16 +101,28 @@ int main(gint argc, gchar* argv[]) {
 		return 4;
 	}
 
-	// init queue provider
-	if (!core_queue_provider_init()) {
-		g_print("Cannot initialize queue provider!\n");
+	// do config preloading
+	core_config_preload();
+
+	// determine queue module from settings
+	if (!core_config_isset("core", "queue_module")) {
+		g_print("Setting 'core.queue_module' was not specified for this instance (%d)!\n", core_instance());
 		core_config_provider_destroy();
 		core_destroy();
 		return 5;
 	}
 
-	// do config preloading
-	core_config_preload();
+	// init queue provider
+	gchar* queue_module = core_config_get_text("core", "queue_module");
+	if (!core_queue_provider_init(queue_module)) {
+		g_print("Cannot initialize queue provider!\n");
+		core_config_provider_destroy();
+		core_destroy();
+		return 6;
+	}
+	g_free(queue_module);
+
+	//===
 
 	// destroy queue provider
 	core_queue_provider_destroy();

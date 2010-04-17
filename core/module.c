@@ -4,7 +4,7 @@
 
 #include <string.h>
 
-gchar* core_module_file(module_type type, gchar* name) {
+gchar* core_module_file(module_type type, const gchar* name) {
 	// prefixes for various module types (indexes correspond to "module_type" enum)
 	gchar* module_prefixes[4] = {
 		"cfg",
@@ -30,7 +30,7 @@ gchar* core_module_file(module_type type, gchar* name) {
 	return plugin_path;
 }
 
-module_loaded* core_module_load(module_type type, gchar* name, GError** error) {
+module_loaded* core_module_load(module_type type, const gchar* name, GError** error) {
 	module_loaded*		module;
 
 	GModule*			plugin;
@@ -115,7 +115,7 @@ module_loaded* core_module_load(module_type type, gchar* name, GError** error) {
 	return module;
 }
 
-gboolean core_module_unload(module_type type, gchar* name) {
+gboolean core_module_unload(module_type type, const gchar* name) {
 	// get loaded module identifier
 	gchar* plugin_path = core_module_file(type, name);
 

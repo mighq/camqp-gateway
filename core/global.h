@@ -6,6 +6,7 @@
 #include <api_module_config.h>
 #include <api_module_queue.h>
 
+extern guint					g_instance;
 extern GHashTable*				g_options;
 extern GHashTable*				g_modules;
 

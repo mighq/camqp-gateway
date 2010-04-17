@@ -46,25 +46,28 @@ sqlite3_stmt* _prepare_config_query(gchar* column, gchar* group, gchar* option) 
 			SELECT							\
 				%s							\
 			FROM							\
-				\"value\"					\
+				setting						\
 					JOIN					\
 				\"group\" AS g				\
 						USING (group_pk)	\
 					JOIN					\
-				setting AS s				\
-						USING (setting_pk)	\
+				option AS o					\
+						USING (option_pk)	\
 			WHERE							\
+				instance_id = %d			\
+					AND						\
 				g.name = '%s'				\
 					AND						\
-				s.name = '%s'				\
+				o.name = '%s'				\
 					AND						\
 				%s IS NOT NULL				\
 			ORDER BY						\
-				value_pk ASC				\
+				setting_pk ASC				\
 			LIMIT							\
 				1							\
 		",
 			column,
+			core_instance(),
 			group,
 			option,
 			column
@@ -108,18 +111,21 @@ gboolean isset(gchar* group, gchar* option) {
 			SELECT							\
 				count(*)					\
 			FROM							\
-				\"value\"					\
+				setting						\
 					JOIN					\
 				\"group\" AS g				\
 						USING (group_pk)	\
 					JOIN					\
-				setting AS s				\
-						USING (setting_pk)	\
+				option AS o					\
+						USING (option_pk)	\
 			WHERE							\
+				instance_id = %d			\
+					AND						\
 				g.name = '%s'				\
 					AND						\
-				s.name = '%s'				\
+				o.name = '%s'				\
 		",
+			core_instance(),
 			group,
 			option
 	);
