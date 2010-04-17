@@ -16,7 +16,7 @@ gboolean core_treat_cmd_options(gint argc, gchar** argv, GError** error) {
 	// setup option entries
 	GOptionEntry cmd_options[] =
 	{
-		{ "config", 'c', 0, G_OPTION_ARG_STRING, &cmd_option_config, "Use specified configuration module [db_sqlite]", NULL },
+		{ "config", 'c', 0, G_OPTION_ARG_STRING, &cmd_option_config, "Use specified configuration module [sqlite]", NULL },
 		{ "modules", 'm', 0, G_OPTION_ARG_STRING, &cmd_option_modules, "Path to modules directory [PROGRAM_BIN/modules]", NULL },
 		{ NULL }
 	};
@@ -33,7 +33,7 @@ gboolean core_treat_cmd_options(gint argc, gchar** argv, GError** error) {
 
 	// set defaults
 	if (cmd_option_config == NULL)
-		cmd_option_config = g_strdup("db_sqlite");
+		cmd_option_config = g_strdup("sqlite");
 
 	if (cmd_option_modules == NULL) {
 		cmd_option_modules = g_strdup("modules");

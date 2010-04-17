@@ -1,4 +1,4 @@
-TARGET_BIN=cfg_db_sqlite.so
+TARGET_BIN=cfg_sqlite.so
 SOURCES=module.c
 
 DIR_ROOT=../..
