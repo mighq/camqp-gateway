@@ -1,0 +1,8 @@
+-K core_instance
+-K core_options_get
+-K core_config_isset
+-K core_config_get_bool
+-K core_config_get_int
+-K core_config_get_real
+-K core_config_get_text
+-K core_config_get_bin

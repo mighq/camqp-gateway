@@ -6,6 +6,8 @@ SOURCES=global.c		\
 		queue.c			\
 		main.c
 
+CORE_API_SYMBOLS=exported_api.sym
+
 DIR_ROOT=..
 
 DIR_API=${DIR_ROOT}/api
@@ -28,6 +30,7 @@ LIBS=					\
 # environment
 CC=gcc
 LD=ld
+STRIP=strip
 CFLAGS=-Wall -O0 -ggdb
 LFLAGS=-Wl,--export-dynamic
 
@@ -45,6 +48,7 @@ all: ${TARGET}
 
 ${TARGET}: ${OBJS} | ${DIR_DIST}
 	${CC} ${LFLAGS} -o $@ ${OBJS} ${LIBS}
+	${STRIP} -s @${CORE_API_SYMBOLS} ${TARGET}
 	chmod +x $@
 
 ${DIR_TMP}/%.d: %.c | ${DIR_TMP}

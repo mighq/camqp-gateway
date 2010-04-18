@@ -24,6 +24,7 @@ LIBS=					\
 # environment
 CC=gcc
 LD=ld
+STRIP=strip
 CFLAGS=-Wall -O0 -ggdb -fPIC
 LFLAGS=
 
@@ -37,6 +38,8 @@ all: ${TARGET}
 
 ${TARGET}: ${OBJS} | ${DIR_MODULES}
 	${LD} ${LFLAGS} -shared -soname ${TARGET_BIN} -o ${TARGET} ${OBJS} ${LIBS}
+	${STRIP} -s -K LoadModule -K UnloadModule -K QueueModule ${TARGET}
+
 
 ${DIR_OBJ}/%.o: %.c | ${DIR_OBJ}
 	${CC} ${CFLAGS} ${INCLUDES} -o $@ -c $<
