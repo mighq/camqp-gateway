@@ -7,16 +7,20 @@
 #include <api_module_queue.h>
 
 // queue provider functions
-module_vtable_queue*	core_queue_provider_init(const gchar* module_name);
+gboolean				core_queue_provider_init();
 gboolean				core_queue_provider_destroy();
 
 module_vtable_queue*	core_queue_provider();
 
-// queue functions
+// common queue functions
 queue*		core_queue_new();
 void		core_queue_push(queue* object, GByteArray* data);
 GByteArray*	core_queue_pop(queue* object);
 gint		core_queue_length(queue* object);
 void		core_queue_destroy(queue* object);
+
+// app queues functions
+void		core_queues_init();
+void		core_queues_destroy();
 
 #endif

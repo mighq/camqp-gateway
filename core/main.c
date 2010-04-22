@@ -6,6 +6,7 @@
 #include "module.h"
 #include "config.h"
 #include "queue.h"
+#include "messaging.h"
 
 #include <signal.h> // signals
 #include <locale.h>	// locales
@@ -90,39 +91,76 @@ int main(gint argc, gchar* argv[]) {
 	if (!core_options_treat(argc, argv, &err)) {
 		g_print("%s\n", err->message);
 		g_error_free(err);
+
 		core_destroy();
+
 		return 3;
 	}
 
 	// init config provider
 	if (!core_config_provider_init()) {
 		g_print("Cannot initialize config provider!\n");
+
 		core_destroy();
+
 		return 4;
 	}
 
 	// do config preloading
 	core_config_preload();
 
-	// determine queue module from settings
-	if (!core_config_isset("core", "queue_module")) {
-		g_print("Setting 'core.queue_module' was not specified for this instance (%d)!\n", core_instance());
+	// init queue provider
+	if (!core_queue_provider_init(&err)) {
+		g_print("Cannot initialize queue provider: %s!\n", err->message);
+	
+		g_error_free(err);
 		core_config_provider_destroy();
 		core_destroy();
+
 		return 5;
 	}
 
-	// init queue provider
-	gchar* queue_module = core_config_get_text("core", "queue_module");
-	if (!core_queue_provider_init(queue_module)) {
-		g_print("Cannot initialize queue provider!\n");
+	// load message handling modules
+	if (!core_messaging_init_module(MODULE_TYPE_MESSAGE_INPUT, &err)) {
+		g_print("%s\n", err->message);
+
+		g_error_free(err);
+		core_queue_provider_destroy();
 		core_config_provider_destroy();
 		core_destroy();
+
 		return 6;
 	}
-	g_free(queue_module);
 
-	//===
+	if (!core_messaging_init_module(MODULE_TYPE_MESSAGE_OUTPUT, &err)) {
+		g_print("%s\n", err->message);
+
+		g_error_free(err);
+		core_queue_provider_destroy();
+		core_config_provider_destroy();
+		core_destroy();
+
+		return 7;
+	}
+
+	if (!core_messaging_init_module(MODULE_TYPE_MESSAGE_TRASH, &err)) {
+		g_print("%s\n", err->message);
+
+		g_error_free(err);
+		core_queue_provider_destroy();
+		core_config_provider_destroy();
+		core_destroy();
+
+		return 8;
+	}
+
+	// init queues
+	core_queues_init();
+
+//===
+
+	// destroy queues
+	core_queues_destroy();
 
 	// destroy queue provider
 	core_queue_provider_destroy();
@@ -130,7 +168,7 @@ int main(gint argc, gchar* argv[]) {
 	// destroy config
 	core_config_provider_destroy();
 
-	// do cleanup
+	// do cleanup (options & modules)
 	core_destroy();
 
 	return 0;

@@ -7,7 +7,7 @@
 #include <api_module_config.h>
 
 // config provider functions
-module_vtable_config*	core_config_provider_init();
+gboolean				core_config_provider_init();
 gboolean				core_config_provider_destroy();
 module_vtable_config*	core_config_provider();
 

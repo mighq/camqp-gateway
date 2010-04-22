@@ -2,29 +2,29 @@
 #include "global.h"
 #include "module.h"
 
-module_vtable_config* core_config_provider_init() {
+gboolean core_config_provider_init() {
 	GError* err;
 	ConfigModuleFunc entry;
 
 	// load config module
 	module_loaded* module = core_module_load(MODULE_TYPE_CONFIG, g_hash_table_lookup(g_options, "config"), &err);
 	if (module == NULL)
-		return NULL;
+		return FALSE;
 
 	// find ConfigModule
 	g_module_symbol(module->module, "ConfigModule", (gpointer*) &entry);
 	if (entry == NULL) {
 		g_warning("%s", g_module_error());
-		return NULL;
+		return FALSE;
 	}
 
 	// get vtable from module
-	module_vtable_config* ret = entry();
+	module->vtable = (gpointer) entry();
 
-	// setup vtable as config_provider
-	g_provider_config = ret;
+	// setup module as config_provider
+	g_provider_config = module;
 
-	return ret;
+	return TRUE;
 }
 
 gboolean core_config_provider_destroy() {
@@ -34,7 +34,7 @@ gboolean core_config_provider_destroy() {
 }
 
 module_vtable_config* core_config_provider() {
-	return g_provider_config;
+	return (module_vtable_config*) g_provider_config->vtable;
 }
 
 

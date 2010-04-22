@@ -6,8 +6,9 @@
 typedef enum {
 	MODULE_TYPE_CONFIG = 0,
 	MODULE_TYPE_QUEUE,
-	MODULE_TYPE_INPUT,
-	MODULE_TYPE_OUTPUT
+	MODULE_TYPE_MESSAGE_INPUT,
+	MODULE_TYPE_MESSAGE_OUTPUT,
+	MODULE_TYPE_MESSAGE_TRASH
 } module_type;
 
 typedef struct {
@@ -17,5 +18,7 @@ typedef struct {
 
 typedef module_info*	(*LoadModuleFunc)	(void); // LoadModule
 typedef gboolean		(*UnloadModuleFunc)	(void); // UnloadModule
+
+typedef gpointer		(*ModuleFunc)		(void); // abstract module entry function
 
 #endif

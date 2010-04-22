@@ -4,6 +4,7 @@ SOURCES=global.c		\
 		module.c		\
 		config.c		\
 		queue.c			\
+		messaging.c		\
 		main.c
 
 CORE_API_SYMBOLS=exported_api.sym
@@ -37,7 +38,7 @@ LFLAGS=-Wl,--export-dynamic
 DIR_TMP=tmp
 DIR_DEBUG=debug
 
-TEST_OPTIONS=-c sqlite 0
+TEST_OPTIONS=-c sqlite 1
 
 # computed parts
 OBJS=$(patsubst %.c,${DIR_TMP}/%.o,${SOURCES})

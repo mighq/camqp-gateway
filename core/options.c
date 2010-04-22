@@ -62,7 +62,7 @@ gboolean core_options_treat(gint argc, gchar** argv, GError** error) {
 
 	// parse
 	GOptionContext* cli_context;
-	cli_context = g_option_context_new("instance_id");
+	cli_context = g_option_context_new("instance_id\n\n  instance_id - Instance unique identifier");
 	g_option_context_add_main_entries(cli_context, cmd_options, NULL);
 	if (!g_option_context_parse(cli_context, &argc, &argv, error)) {
 		g_option_context_free(cli_context);

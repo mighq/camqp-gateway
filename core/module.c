@@ -6,11 +6,12 @@
 
 gchar* core_module_file(module_type type, const gchar* name) {
 	// prefixes for various module types (indexes correspond to "module_type" enum)
-	gchar* module_prefixes[4] = {
-		"cfg",
-		"que",
-		"in",
-		"out"
+	gchar* module_prefixes[5] = {
+		"config",
+		"queue",
+		"msg_in",
+		"msg_out",
+		"msg_trash"
 	};
 
 	// build file name
@@ -110,6 +111,7 @@ module_loaded* core_module_load(module_type type, const gchar* name, GError** er
 	module = g_new0(module_loaded, 1);
 	module->module = plugin;
 	module->info = plugin_info;
+	module->vtable = NULL;
 	g_hash_table_insert(g_modules, plugin_path, module);
 
 	return module;
