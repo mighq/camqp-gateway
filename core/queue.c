@@ -35,7 +35,7 @@ gboolean core_queue_provider_init(GError** error) {
 	}
 
 	// get vtable from module
-	module->vtable = (gpointer) entry();
+	module->vtable = (module_vtable*) entry();
 
 	// setup module as queue_provider
 	g_provider_queue = module;
@@ -62,7 +62,7 @@ queue* core_queue_new() {
 		g_error("Function 'new' not defined in queue module!");
 }
 
-void core_queue_push(queue* object, GByteArray* data) {
+void core_queue_push(queue* object, message* data) {
 	module_vtable_queue* tbl = core_queue_provider();
 	if (tbl->push != NULL)
 		return tbl->push(object, data);
@@ -70,7 +70,7 @@ void core_queue_push(queue* object, GByteArray* data) {
 		g_error("Function 'push' not defined in queue module!");
 }
 
-GByteArray* core_queue_pop(queue* object) {
+message* core_queue_pop(queue* object) {
 	module_vtable_queue* tbl = core_queue_provider();
 	if (tbl->pop != NULL)
 		return tbl->pop(object);

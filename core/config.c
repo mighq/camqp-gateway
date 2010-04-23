@@ -19,7 +19,7 @@ gboolean core_config_provider_init() {
 	}
 
 	// get vtable from module
-	module->vtable = (gpointer) entry();
+	module->vtable = (module_vtable*) entry();
 
 	// setup module as config_provider
 	g_provider_config = module;

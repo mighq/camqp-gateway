@@ -16,9 +16,12 @@ typedef struct {
 	gchar*			name;
 } module_info;
 
+// dummy vtable type
+typedef struct {} module_vtable;
+
 typedef module_info*	(*LoadModuleFunc)	(void); // LoadModule
 typedef gboolean		(*UnloadModuleFunc)	(void); // UnloadModule
 
-typedef gpointer		(*ModuleFunc)		(void); // abstract module entry function
+typedef module_vtable*	(*ModuleFunc)		(void); // abstract module entry function
 
 #endif

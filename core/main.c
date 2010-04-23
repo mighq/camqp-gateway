@@ -8,32 +8,32 @@
 #include "queue.h"
 #include "messaging.h"
 
-#include <signal.h> // signals
+#include <signal.h>	// signals
 #include <locale.h>	// locales
 
 void signal_handler(int signum)
 {
 	g_print("Handling signal %d\n", signum);
-/*
-	// check for termination
+
+	// === setup termination
 	g_mutex_lock(g_lck_termination);
 	g_termination = TRUE;
 	g_mutex_unlock(g_lck_termination);
 
-	// send break of delay to each thread
-	g_mutex_lock(g_lck_t1);
-	g_cond_signal(g_cnd_t1);
-	g_mutex_unlock(g_lck_t1);
+	// === signal wake-ups to all handlers
 
-	g_mutex_lock(g_lck_t2);
-	g_cond_signal(g_cnd_t2);
-	g_mutex_unlock(g_lck_t2);
-*/
+	// forward receiver
+	g_mutex_lock(g_lck_forward_receive);
+	g_cond_signal(g_cnd_forward_receive);
+	g_mutex_unlock(g_lck_forward_receive);
 }
 
 void core_init() {
 	// setup runtime
 	setlocale(LC_ALL, "C.UTF-8");
+
+	// do not terminate yet
+	g_termination = FALSE;
 
 	// setup signal handling
 	struct sigaction signal;
@@ -121,7 +121,7 @@ int main(gint argc, gchar* argv[]) {
 	}
 
 	// load message handling modules
-	if (!core_messaging_init_module(MODULE_TYPE_MESSAGE_INPUT, &err)) {
+	if (!core_messaging_module_init(MODULE_TYPE_MESSAGE_INPUT, &err)) {
 		g_print("%s\n", err->message);
 
 		g_error_free(err);
@@ -132,7 +132,7 @@ int main(gint argc, gchar* argv[]) {
 		return 6;
 	}
 
-	if (!core_messaging_init_module(MODULE_TYPE_MESSAGE_OUTPUT, &err)) {
+	if (!core_messaging_module_init(MODULE_TYPE_MESSAGE_OUTPUT, &err)) {
 		g_print("%s\n", err->message);
 
 		g_error_free(err);
@@ -143,7 +143,7 @@ int main(gint argc, gchar* argv[]) {
 		return 7;
 	}
 
-	if (!core_messaging_init_module(MODULE_TYPE_MESSAGE_TRASH, &err)) {
+	if (!core_messaging_module_init(MODULE_TYPE_MESSAGE_TRASH, &err)) {
 		g_print("%s\n", err->message);
 
 		g_error_free(err);
@@ -154,13 +154,16 @@ int main(gint argc, gchar* argv[]) {
 		return 8;
 	}
 
-	// init queues
-	core_queues_init();
+	// init messaging framework
+	core_messaging_init();
 
-//===
 
-	// destroy queues
-	core_queues_destroy();
+	// start messaging framework
+	core_messaging_start();
+
+
+	// destroy messaging framework
+	core_messaging_destroy();
 
 	// destroy queue provider
 	core_queue_provider_destroy();

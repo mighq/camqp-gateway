@@ -4,7 +4,7 @@ static module_info*			g_module_info;
 static module_vtable_queue*	g_vtable;
 
 // exported funcs
-queue* new(void) {
+queue* queue_memory_new(void) {
 	queue* obj = g_new0(queue, 1);
 	if (obj == NULL)
 		return NULL;
@@ -14,7 +14,7 @@ queue* new(void) {
 	return obj;
 }
 
-void push(queue* object, GByteArray* data) {
+void queue_memory_push(queue* object, message* data) {
 	// attach to queue
 	GAsyncQueue* q = g_async_queue_ref(object->object);
 
@@ -25,15 +25,31 @@ void push(queue* object, GByteArray* data) {
 	g_async_queue_unref(q);
 }
 
-GByteArray* pop(queue* object) {
-	return (GByteArray*) g_async_queue_try_pop(object->object);;
+message* queue_memory_pop(queue* object) {
+	// attach to queue
+	GAsyncQueue* q = g_async_queue_ref(object->object);
+
+	message* ret = (message*) g_async_queue_try_pop(q);
+
+	// free queue ref
+	g_async_queue_unref(q);
+
+	return ret;
 }
 
-gint length(queue* object) {
-	return g_async_queue_length(object->object);
+gint queue_memory_length(queue* object) {
+	// attach to queue
+	GAsyncQueue* q = g_async_queue_ref(object->object);
+
+	gint ret = g_async_queue_length(q);
+
+	// free queue ref
+	g_async_queue_unref(q);
+
+	return ret;
 }
 
-void destroy(queue* object) {
+void queue_memory_destroy(queue* object) {
 	g_async_queue_unref(object->object);
 	g_free(object);
 }
@@ -54,11 +70,11 @@ module_info* LoadModule() {
 		return NULL;
 
 	// fill vtable with implemented functions
-	g_vtable->new = new;
-	g_vtable->push = push;
-	g_vtable->pop = pop;
-	g_vtable->length = length;
-	g_vtable->destroy = destroy;
+	g_vtable->new = queue_memory_new;
+	g_vtable->push = queue_memory_push;
+	g_vtable->pop = queue_memory_pop;
+	g_vtable->length = queue_memory_length;
+	g_vtable->destroy = queue_memory_destroy;
 
 	return g_module_info;
 }

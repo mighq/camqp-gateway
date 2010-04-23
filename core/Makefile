@@ -5,6 +5,7 @@ SOURCES=global.c		\
 		config.c		\
 		queue.c			\
 		messaging.c		\
+		thread.c		\
 		main.c
 
 CORE_API_SYMBOLS=exported_api.sym
@@ -49,13 +50,14 @@ all: ${TARGET}
 
 ${TARGET}: ${OBJS} | ${DIR_DIST}
 	${CC} ${LFLAGS} -o $@ ${OBJS} ${LIBS}
-	${STRIP} -s @${CORE_API_SYMBOLS} ${TARGET}
+#	${STRIP} -s @${CORE_API_SYMBOLS} ${TARGET}
 	chmod +x $@
 
 ${DIR_TMP}/%.d: %.c | ${DIR_TMP}
 	@${SHELL} -ec '${CC} -M ${INCLUDES} $< | sed -e "s#^$*.o#& $@#g" > $@'
 
 ${DIR_TMP}/%.o: %.c | ${DIR_TMP}
+#	@${CC} -E ${CFLAGS} ${INCLUDES} -o $@.s -c $<
 	${CC} ${CFLAGS} ${INCLUDES} -o $@ -c $<
 
 # dependencies

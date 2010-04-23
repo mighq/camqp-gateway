@@ -4,7 +4,7 @@ static module_info*					g_module_info;
 static module_vtable_msg_trash*		g_vtable;
 
 // exported functions
-void handler_receive_trash(message* data) {
+void msg_trash_sqlite_handler_receive_trash(message* data) {
 }
 
 // module interface
@@ -23,7 +23,7 @@ module_info* LoadModule() {
 		return NULL;
 
 	// fill vtable with implemented functions
-	g_vtable->handler_receive_trash = handler_receive_trash;
+	g_vtable->handler_receive_trash = msg_trash_sqlite_handler_receive_trash;
 
 	return g_module_info;
 }

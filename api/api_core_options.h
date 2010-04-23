@@ -8,11 +8,6 @@
 #endif
 
 /**
- * returns instance identifier
- */
-DLLIMPORT guint32		core_instance();
-
-/**
  * "program"	=> program executable directory (from environment)
  *
  * "config"		=> configuration module (from command line)

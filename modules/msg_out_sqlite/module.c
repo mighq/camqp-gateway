@@ -4,12 +4,19 @@ static module_info*					g_module_info;
 static module_vtable_msg_output*	g_vtable;
 
 // exported functions
-message_batch* handler_pull_feedback() {
-	return NULL;
+module_producer_type msg_out_sqlite_producer_type() {
+	return MODULE_PRODUCER_TYPE_PUSH;
 }
 
-gboolean handler_receive_forward(message* data) {
+gboolean msg_out_sqlite_handler_receive_forward(message* data) {
+	g_print("received out:%p:%d\n", data, data->len);
+
+	g_byte_array_free(data, TRUE);
+
 	return TRUE;
+}
+
+void msg_out_sqlite_invoker_push_feedback() {
 }
 
 // module interface
@@ -28,8 +35,10 @@ module_info* LoadModule() {
 		return NULL;
 
 	// fill vtable with implemented functions
-	g_vtable->handler_pull_feedback = handler_pull_feedback;
-	g_vtable->handler_receive_forward = handler_receive_forward;
+	g_vtable->producer_type = msg_out_sqlite_producer_type;
+	g_vtable->handler_receive_forward = msg_out_sqlite_handler_receive_forward;
+	g_vtable->invoker_push_feedback = msg_out_sqlite_invoker_push_feedback;
+	g_vtable->handler_pull_feedback = NULL;
 
 	return g_module_info;
 }

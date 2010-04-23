@@ -38,7 +38,7 @@ all: ${TARGET}
 
 ${TARGET}: ${OBJS} | ${DIR_MODULES}
 	${LD} ${LFLAGS} -shared -soname ${TARGET_BIN} -o ${TARGET} ${OBJS} ${LIBS}
-	${STRIP} -s -K LoadModule -K UnloadModule -K TrashModule ${TARGET}
+#	${STRIP} -s -K LoadModule -K UnloadModule -K TrashModule ${TARGET}
 
 
 ${DIR_OBJ}/%.o: %.c | ${DIR_OBJ}

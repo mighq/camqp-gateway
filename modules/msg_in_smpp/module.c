@@ -1,14 +1,41 @@
 #include <api_module_msg_input.h>
+#include <api_core_messaging.h>
+#include <api_core.h>
+
+#include <unistd.h>
 
 static module_info*				g_module_info;
 static module_vtable_msg_input*	g_vtable;
 
 // exported function
-message_batch* handler_pull_forward() {
-	return NULL;
+module_producer_type msg_in_smpp_producer_type() {
+	return MODULE_PRODUCER_TYPE_PUSH;
 }
 
-gboolean handler_receive_feedback(message* data) {
+/**
+ * iteration of thread_forward_push
+ * if blocking, you have to check for core_terminated() from time to time
+ */
+void msg_in_smpp_invoker_push_forward() {
+	// do nothing if core have terminated already
+	if (core_terminated())
+		return;
+
+	g_print("generating & sending msg\n");
+
+	// create message
+	message* msg = g_byte_array_new();
+	g_byte_array_append(msg, (guint8*) "ABC\x00", 4);
+
+	// add to batch
+	message_batch* batch = NULL;
+	batch = g_slist_append(batch, msg);
+
+	// send
+	core_handler_push_forward(batch);
+}
+
+gboolean msg_in_smpp_handler_receive_feedback(message* data) {
 	return TRUE;
 }
 
@@ -28,8 +55,10 @@ module_info* LoadModule() {
 		return NULL;
 
 	// fill vtable with implemented functions
-	g_vtable->handler_pull_forward = handler_pull_forward;
-	g_vtable->handler_receive_feedback = handler_receive_feedback;
+	g_vtable->producer_type = msg_in_smpp_producer_type;
+	g_vtable->invoker_push_forward = msg_in_smpp_invoker_push_forward;
+	g_vtable->handler_pull_forward = NULL;
+	g_vtable->handler_receive_feedback = msg_in_smpp_handler_receive_feedback;
 
 	return g_module_info;
 }

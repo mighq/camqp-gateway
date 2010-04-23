@@ -9,7 +9,7 @@ static module_vtable_config*	g_vtable;
 static sqlite3*					g_db;
 
 //
-void module_init() {
+void config_sqlite_module_init() {
 	GHashTable* opts = core_options_get();
 
 	// create config DB file name
@@ -35,12 +35,12 @@ void module_init() {
 	g_free(db_file_name);
 }
 
-void module_destroy() {
+void config_sqlite_module_destroy() {
 	sqlite3_close(g_db);
 }
 
 // convenience functions
-sqlite3_stmt* _prepare_config_query(gchar* column, gchar* group, gchar* option) {
+sqlite3_stmt* config_sqlite_prepare_config_query(gchar* column, gchar* group, gchar* option) {
 	gchar* query = g_strdup_printf(
 		"									\
 			SELECT							\
@@ -105,7 +105,7 @@ sqlite3_stmt* _prepare_config_query(gchar* column, gchar* group, gchar* option) 
 }
 
 // exported functions
-gboolean isset(gchar* group, gchar* option) {
+gboolean config_sqlite_isset(gchar* group, gchar* option) {
 	gchar* query = g_strdup_printf(
 		"									\
 			SELECT							\
@@ -164,10 +164,10 @@ gboolean isset(gchar* group, gchar* option) {
 	return (gboolean) (data > 0);
 }
 
-gint get_int(gchar* group, gchar* option) {
+gint config_sqlite_get_int(gchar* group, gchar* option) {
 	gint default_value = 0;
 
-	sqlite3_stmt* stmt = _prepare_config_query("data_int", group, option);
+	sqlite3_stmt* stmt = config_sqlite_prepare_config_query("data_int", group, option);
 	if (stmt == NULL)
 		return default_value;
 
@@ -177,16 +177,16 @@ gint get_int(gchar* group, gchar* option) {
 	return data;
 }
 
-gboolean get_bool(gchar* group, gchar* option) {
-	gint res = get_int(group, option);
+gboolean config_sqlite_get_bool(gchar* group, gchar* option) {
+	gint res = config_sqlite_get_int(group, option);
 
 	return (gboolean) (res > 0);
 }
 
-gfloat get_real(gchar* group, gchar* option) {
+gfloat config_sqlite_get_real(gchar* group, gchar* option) {
 	gfloat default_value = 0;
 
-	sqlite3_stmt* stmt = _prepare_config_query("data_real", group, option);
+	sqlite3_stmt* stmt = config_sqlite_prepare_config_query("data_real", group, option);
 	if (stmt == NULL)
 		return default_value;
 
@@ -196,10 +196,10 @@ gfloat get_real(gchar* group, gchar* option) {
 	return (gfloat) data;
 }
 
-gchar* get_text(gchar* group, gchar* option) {
+gchar* config_sqlite_get_text(gchar* group, gchar* option) {
 	gchar* default_value = "";
 
-	sqlite3_stmt* stmt = _prepare_config_query("data_text", group, option);
+	sqlite3_stmt* stmt = config_sqlite_prepare_config_query("data_text", group, option);
 	if (stmt == NULL)
 		return default_value;
 
@@ -226,21 +226,21 @@ module_info* LoadModule() {
 
 	// fill vtable with implemented functions
 	g_vtable->preload = NULL;
-	g_vtable->isset = isset;
-	g_vtable->get_bool = get_bool;
-	g_vtable->get_int = get_int;
-	g_vtable->get_real = get_real;
-	g_vtable->get_text = get_text;
+	g_vtable->isset = config_sqlite_isset;
+	g_vtable->get_bool = config_sqlite_get_bool;
+	g_vtable->get_int = config_sqlite_get_int;
+	g_vtable->get_real = config_sqlite_get_real;
+	g_vtable->get_text = config_sqlite_get_text;
 	g_vtable->get_bin = NULL;
 
 	// initialize module specific things
-	module_init();
+	config_sqlite_module_init();
 
 	return g_module_info;
 }
 
 gboolean UnloadModule() {
-	module_destroy();
+	config_sqlite_module_destroy();
 
 	g_free(g_module_info->name);
 	g_free(g_module_info);

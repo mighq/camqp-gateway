@@ -8,7 +8,7 @@
 typedef struct {
 	GModule*		module;
 	module_info*	info;
-	gpointer*		vtable;
+	module_vtable*	vtable;
 } module_loaded;
 
 // common

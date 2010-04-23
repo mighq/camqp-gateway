@@ -14,8 +14,8 @@ module_vtable_queue*	core_queue_provider();
 
 // common queue functions
 queue*		core_queue_new();
-void		core_queue_push(queue* object, GByteArray* data);
-GByteArray*	core_queue_pop(queue* object);
+void		core_queue_push(queue* object, message* data);
+message*	core_queue_pop(queue* object);
 gint		core_queue_length(queue* object);
 void		core_queue_destroy(queue* object);
 

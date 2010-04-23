@@ -8,6 +8,8 @@
 typedef struct {
 	module_producer_type	(*producer_type)			();
 
+	void					(*invoker_push_feedback)	();
+
 	message_batch*			(*handler_pull_feedback)	();
 	gboolean				(*handler_receive_forward)	(message* data);
 } module_vtable_msg_output;
