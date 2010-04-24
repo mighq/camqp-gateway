@@ -21,11 +21,31 @@ void signal_handler(int signum)
 	g_mutex_unlock(g_lck_termination);
 
 	// === signal wake-ups to all handlers
+/*
+	// forward push
+	if (g_lck_forward_push != NULL) {
+		g_mutex_lock(g_lck_forward_push);
+		g_cond_signal(g_cnd_forward_push);
+		g_mutex_unlock(g_lck_forward_push);
+	}
+*/
+	// forward pull
+	if (g_lck_forward_pull != NULL) {
+		g_mutex_lock(g_lck_forward_pull);
+		g_cond_signal(g_cnd_forward_pull);
+		g_mutex_unlock(g_lck_forward_pull);
+	}
 
 	// forward receiver
 	g_mutex_lock(g_lck_forward_receive);
 	g_cond_signal(g_cnd_forward_receive);
 	g_mutex_unlock(g_lck_forward_receive);
+
+	// trash receiver
+	g_mutex_lock(g_lck_trash_receive);
+	g_cond_signal(g_cnd_trash_receive);
+	g_mutex_unlock(g_lck_trash_receive);
+
 }
 
 void core_init() {

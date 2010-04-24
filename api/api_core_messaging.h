@@ -9,7 +9,7 @@
 
 DLLIMPORT void core_handler_push_forward(message_batch* data);
 DLLIMPORT void core_handler_push_feedback(message_batch* data);
-DLLIMPORT void core_handler_push_trash(message* data);
+DLLIMPORT void core_handler_push_trash(const message* const data);
 
 
 #endif

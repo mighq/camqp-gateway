@@ -4,7 +4,10 @@ static module_info*					g_module_info;
 static module_vtable_msg_trash*		g_vtable;
 
 // exported functions
-void msg_trash_sqlite_handler_receive_trash(message* data) {
+gboolean msg_trash_sqlite_handler_receive_trash(const message* const data) {
+	g_print("received trash:%s [%p]\n", data->data, data);
+
+	return FALSE;
 }
 
 // module interface

@@ -1,23 +1,26 @@
 #include <api_module_msg_output.h>
 
+#include <stdlib.h>
+
 static module_info*					g_module_info;
 static module_vtable_msg_output*	g_vtable;
 
 // exported functions
-module_producer_type msg_out_sqlite_producer_type() {
-	return MODULE_PRODUCER_TYPE_PUSH;
+module_producer_type msg_out_sqlite_producer_type() { return MODULE_PRODUCER_TYPE_PUSH; }
+
+/**
+ * message data can't be changed
+ */
+gboolean msg_out_sqlite_handler_receive_forward(const message* const data) {
+	// success or failure
+	gboolean ret = rand() > (RAND_MAX/2);
+	if (ret)
+		g_print("received out:%s [%p]\n", data->data, data);
+
+	return ret;
 }
 
-gboolean msg_out_sqlite_handler_receive_forward(message* data) {
-	g_print("received out:%p:%d\n", data, data->len);
-
-	g_byte_array_free(data, TRUE);
-
-	return TRUE;
-}
-
-void msg_out_sqlite_invoker_push_feedback() {
-}
+void msg_out_sqlite_invoker_push_feedback() {}
 
 // module interface
 module_info* LoadModule() {

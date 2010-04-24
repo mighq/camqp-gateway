@@ -44,6 +44,15 @@ INSERT INTO "option" (
 	'trash_module'
 );
 
+-- core.forward_pull_timeout
+INSERT INTO "option" (
+	"option_pk",
+	"name"
+) VALUES (
+	coalesce((SELECT max("option_pk")+1 FROM "option"), 1),
+	'forward_pull_timeout'
+);
+
 -- === individual settings
 INSERT INTO "setting" (
 	"setting_pk",
@@ -115,6 +124,24 @@ INSERT INTO "setting" (
 	(SELECT "option_pk" FROM "option" WHERE "name" = 'trash_module'),
 	--
 	'sqlite'
+);
+
+INSERT INTO "setting" (
+	"setting_pk",
+	--
+	"instance_id",
+	"group_pk",
+	"option_pk",
+	--
+	"data_real"
+) VALUES (
+	coalesce((SELECT max("setting_pk")+1 FROM "setting"), 1),
+	--
+	1,
+	(SELECT "group_pk" FROM "group" WHERE "name" = 'core'),
+	(SELECT "option_pk" FROM "option" WHERE "name" = 'forward_pull_timeout'),
+	--
+	3000.000 -- miliseconds
 );
 
 COMMIT;

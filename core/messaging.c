@@ -7,7 +7,15 @@
 
 #include <api_core.h>
 #include <api_core_config.h>
-//#include <api_core_messaging.h>
+#include <api_core_messaging.h>
+
+message* message_new() {
+	return g_byte_array_new();
+}
+
+void message_free(message* data) {
+	g_byte_array_free(data, TRUE);
+}
 
 module_vtable_msg_input* core_messaging_handlers_input() {
 	return (module_vtable_msg_input*) g_handlers_input->vtable;
@@ -227,9 +235,33 @@ void core_messaging_init() {
 	// termination
 	g_lck_termination = g_mutex_new();
 
+	// trash_receive
+	g_lck_trash_receive = g_mutex_new();
+	g_cnd_trash_receive = g_cond_new();
+
 	// forward_receive
 	g_lck_forward_receive = g_mutex_new();
 	g_cnd_forward_receive = g_cond_new();
+
+	// forward pull
+	module_producer_type mode_in = ((module_vtable_msg*) g_handlers_input->vtable)->producer_type();
+	if ((mode_in & MODULE_PRODUCER_TYPE_PULL) != 0) {
+		g_lck_forward_pull = g_mutex_new();
+		g_cnd_forward_pull = g_cond_new();
+	} else {
+		g_lck_forward_pull = NULL;
+		g_cnd_forward_pull = NULL;
+	}
+/*
+	// forward push
+	if ((mode_in & MODULE_PRODUCER_TYPE_PUSH) != 0) {
+		g_lck_forward_push = g_mutex_new();
+		g_cnd_forward_push = g_cond_new();
+	} else {
+		g_lck_forward_push = NULL;
+		g_cnd_forward_push = NULL;
+	}
+*/
 }
 
 void core_messaging_destroy() {
@@ -241,9 +273,26 @@ void core_messaging_destroy() {
 	// termination
 	g_mutex_free(g_lck_termination);
 
+	// trash_receive
+	g_mutex_free(g_lck_trash_receive);
+	g_cond_free(g_cnd_trash_receive);
+
 	// forward_receive
 	g_mutex_free(g_lck_forward_receive);
 	g_cond_free(g_cnd_forward_receive);
+
+	// forward pull
+	if (g_lck_forward_pull)
+		g_mutex_free(g_lck_forward_pull);
+	if (g_cnd_forward_pull)
+		g_cond_free(g_cnd_forward_pull);
+/*
+	// forward push
+	if (g_lck_forward_push)
+		g_mutex_free(g_lck_forward_push);
+	if (g_cnd_forward_push)
+		g_cond_free(g_cnd_forward_push);
+*/
 }
 
 void core_messaging_start() {
@@ -302,9 +351,6 @@ void core_messaging_start() {
 // core message handlers
 
 void core_handler_push_forward(message_batch* data) {
-	gint qlen_before = core_queue_length(g_queue_forward);
-
-	gint pushed = 0;
 	message_batch* iter = data;
 	while (iter != NULL) {
 		// get current message
@@ -317,7 +363,6 @@ void core_handler_push_forward(message_batch* data) {
 
 		// add message to forward queue
 		core_queue_push(g_queue_forward, msg);
-		pushed++;
 
 		// next
 		iter = g_slist_next(iter);
@@ -325,13 +370,21 @@ void core_handler_push_forward(message_batch* data) {
 
 	g_slist_free(data);
 
-	gint qlen_after = core_queue_length(g_queue_forward);
+	// waking up receiver
+	g_mutex_lock(g_lck_forward_receive);
+	g_cond_signal(g_cnd_forward_receive);
+	g_mutex_unlock(g_lck_forward_receive);
+}
 
-	// if nothing was in queue and we pushed everyrything what's there now (means, nobody other has pushed in meantime)
-	if (qlen_before == 0 && qlen_after > 0 && qlen_after == pushed) {
-		// waking up receiver
-		g_mutex_lock(g_lck_forward_receive);
-		g_cond_signal(g_cnd_forward_receive);
-		g_mutex_unlock(g_lck_forward_receive);
-	}
+void core_handler_push_trash(const message* const data) {
+	if (data == NULL)
+		return;
+
+	// add to trash queue
+	core_queue_push(g_queue_trash, data);
+
+	// waking up trash receiver
+	g_mutex_lock(g_lck_trash_receive);
+	g_cond_signal(g_cnd_trash_receive);
+	g_mutex_unlock(g_lck_trash_receive);
 }

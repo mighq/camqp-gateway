@@ -6,7 +6,7 @@
 
 // vtable for messaging trash module
 typedef struct {
-	void	(*handler_receive_trash)	(message* data);
+	gboolean	(*handler_receive_trash)	(const message* const data);
 } module_vtable_msg_trash;
 
 // function which returns vtable for that module

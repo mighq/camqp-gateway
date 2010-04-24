@@ -11,7 +11,7 @@ typedef struct {
 	void					(*invoker_push_forward)		();
 
 	message_batch*			(*handler_pull_forward)		();
-	gboolean				(*handler_receive_feedback)	(message* data);
+	gboolean				(*handler_receive_feedback)	(const message* const data);
 } module_vtable_msg_input;
 
 // function which returns vtable for that module

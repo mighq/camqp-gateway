@@ -2,15 +2,13 @@
 #include <api_core_messaging.h>
 #include <api_core.h>
 
-#include <unistd.h>
+#include <stdlib.h>
 
 static module_info*				g_module_info;
 static module_vtable_msg_input*	g_vtable;
 
 // exported function
-module_producer_type msg_in_smpp_producer_type() {
-	return MODULE_PRODUCER_TYPE_PUSH;
-}
+module_producer_type msg_in_smpp_producer_type() { return MODULE_PRODUCER_TYPE_PUSH; }
 
 /**
  * iteration of thread_forward_push
@@ -21,21 +19,29 @@ void msg_in_smpp_invoker_push_forward() {
 	if (core_terminated())
 		return;
 
-	g_print("generating & sending msg\n");
+	gboolean ret = rand() > (RAND_MAX/2);
+	if (ret) {
+		// create message
+		message* msg = message_new();
+		g_byte_array_append(msg, (guint8*) "ABC\x00", 4);
 
-	// create message
-	message* msg = g_byte_array_new();
-	g_byte_array_append(msg, (guint8*) "ABC\x00", 4);
+		g_print("generating msg [%p]\n", msg);
 
-	// add to batch
-	message_batch* batch = NULL;
-	batch = g_slist_append(batch, msg);
+		// add to batch
+		message_batch* batch = NULL;
+		batch = g_slist_append(batch, msg);
 
-	// send
-	core_handler_push_forward(batch);
+		// send batch
+		core_handler_push_forward(batch);
+	} else {
+		g_print("no new messages\n");
+	}
+
+	// wait
+	g_usleep(3000000);
 }
 
-gboolean msg_in_smpp_handler_receive_feedback(message* data) {
+gboolean msg_in_smpp_handler_receive_feedback(const message* const data) {
 	return TRUE;
 }
 
