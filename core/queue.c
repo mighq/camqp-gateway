@@ -3,6 +3,7 @@
 #include "global.h"
 #include "module.h"
 
+#include <api_core.h>
 #include <api_core_options.h>
 #include <api_core_config.h>
 

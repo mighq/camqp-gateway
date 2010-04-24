@@ -381,7 +381,7 @@ void core_handler_push_trash(const message* const data) {
 		return;
 
 	// add to trash queue
-	core_queue_push(g_queue_trash, data);
+	core_queue_push(g_queue_trash, (message*) data);
 
 	// waking up trash receiver
 	g_mutex_lock(g_lck_trash_receive);
