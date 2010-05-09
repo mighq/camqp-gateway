@@ -1,6 +1,7 @@
 #include <api_module_msg_input.h>
 #include <api_core_messaging.h>
 #include <api_core.h>
+#include <arpa/inet.h> // htonl
 
 #include <stdlib.h>
 
@@ -23,9 +24,20 @@ void msg_in_smpp_invoker_push_forward() {
 	if (ret) {
 		// create message
 		message* msg = message_new();
-		g_byte_array_append(msg, (guint8*) "ABC\x00", 4);
 
 		g_print("generating msg [%p]\n", msg);
+
+		guint32 seq = core_sequence_next();
+		guint32 tmp = htonl(seq);
+
+		g_byte_array_append(msg, (guint8*) &tmp, 4);
+		g_byte_array_append(msg, (guint8*) "\x00", 1);
+		g_byte_array_append(msg, (guint8*) "+420608077273", 13);
+		g_byte_array_append(msg, (guint8*) "\x00", 1);
+		g_byte_array_append(msg, (guint8*) "+421908900601", 13);
+		g_byte_array_append(msg, (guint8*) "\x00", 1);
+		g_byte_array_append(msg, (guint8*) "pela", 4);
+		g_byte_array_append(msg, (guint8*) "\x00", 1);
 
 		// add to batch
 		message_batch* batch = NULL;

@@ -69,6 +69,7 @@ void core_init() {
 
 	// do not terminate yet
 	g_termination = FALSE;
+	g_sequence_started = FALSE;
 
 	// setup signal handling
 	struct sigaction signal;
@@ -110,6 +111,13 @@ void core_destroy() {
 	g_hash_table_destroy(g_modules);
 
 	// delete all external condition entries
+	GSList* list = g_conditions;
+	while (list != NULL) {
+		condition_info* ci = (condition_info*) list->data;
+		g_free(ci);
+
+		list = list->next;
+	}
 	g_slist_free(g_conditions);
 }
 

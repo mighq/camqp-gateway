@@ -15,6 +15,8 @@
 GLOBALIMPORT guint			g_instance;
 GLOBALIMPORT GHashTable*	g_options;
 GLOBALIMPORT GHashTable*	g_modules;
+GLOBALIMPORT guint32		g_sequence;
+GLOBALIMPORT gboolean		g_sequence_started;
 
 /**
  * provider modules
@@ -68,6 +70,9 @@ GLOBALIMPORT GMutex*		g_lck_feedback_receive;
 GLOBALIMPORT GCond*			g_cnd_trash_receive;
 GLOBALIMPORT GMutex*		g_lck_trash_receive;
 
+// used to block access to sequence numbes
+GLOBALIMPORT GMutex*		g_lck_sequence;
+
 /**
  * external conditions list
  */
@@ -76,5 +81,7 @@ typedef struct {
 	GMutex*	mutex;
 } condition_info;
 GSList*						g_conditions;
+
+const char* serialize_payload(unsigned char* pointer, unsigned int length);
 
 #endif

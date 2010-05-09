@@ -234,6 +234,7 @@ void core_messaging_init() {
 
 	// termination
 	g_lck_termination = g_mutex_new();
+	g_lck_sequence = g_mutex_new();
 
 	// forward pull
 	module_producer_type mode_in = ((module_vtable_msg*) g_handlers_input->vtable)->producer_type();
@@ -276,6 +277,8 @@ void core_messaging_destroy() {
 
 	// termination
 	g_mutex_free(g_lck_termination);
+
+	g_mutex_free(g_lck_sequence);
 
 	// trash_receive
 	g_mutex_free(g_lck_trash_receive);
@@ -414,4 +417,19 @@ void core_handler_push_trash(const message* const data) {
 	g_mutex_lock(g_lck_trash_receive);
 	g_cond_signal(g_cnd_trash_receive);
 	g_mutex_unlock(g_lck_trash_receive);
+}
+
+guint32 core_sequence_next() {
+	guint32 ret;
+
+	g_mutex_lock(g_lck_sequence);
+	if (g_sequence_started) {
+		ret = 0;
+		g_sequence_started = TRUE;
+	} else {
+		ret = (g_sequence == G_MAXUINT32) ? 0 : g_sequence + 1;
+	}
+	g_mutex_unlock(g_lck_sequence);
+
+	return ret;
 }
