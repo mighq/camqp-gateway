@@ -1,4 +1,4 @@
-TARGET_BIN=msg_out_sqlite.so
+TARGET_BIN=msg_in_sqlite.so
 SOURCES=module.c
 
 DIR_ROOT=../..

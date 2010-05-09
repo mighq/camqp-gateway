@@ -1,10 +1,9 @@
-TARGET_BIN=msg_out_sqlite.so
+TARGET_BIN=msg_out_smpp.so
 SOURCES=module.c
 
 DIR_ROOT=../..
 
 DIR_LIB_GLIB=/usr
-DIR_LIB_SQLITE=/usr
 
 DIR_DIST=${DIR_ROOT}/dist
 DIR_MODULES=${DIR_DIST}/modules
@@ -14,7 +13,6 @@ DIR_API=${DIR_ROOT}/api
 INCLUDES=									\
 	-I${DIR_LIB_GLIB}/include/glib-2.0		\
 	-I${DIR_LIB_GLIB}/lib/glib-2.0/include	\
-	-I${DIR_LIB_SQLITE}/include				\
 	-I${DIR_API}
 
 LIBS=					\
@@ -22,7 +20,6 @@ LIBS=					\
 		-lglib-2.0		\
 		-lgthread-2.0	\
 		-lgmodule-2.0	\
-		-lsqlite3
 
 # environment
 CC=gcc

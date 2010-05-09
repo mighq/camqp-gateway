@@ -1,5 +1,6 @@
 #include <api_module_config.h>
 #include <api_core_options.h>
+#include <api_core.h>
 
 #include <string.h>
 #include <sqlite3.h>
@@ -11,6 +12,10 @@ static sqlite3*					g_db;
 //
 void config_sqlite_module_init() {
 	GHashTable* opts = core_options_get();
+
+	if (sqlite3_threadsafe() == 0)
+		g_warning("ThreadSafe disabled for SQLite build!");
+	sqlite3_config(SQLITE_CONFIG_SERIALIZED);
 
 	// create config DB file name
 	gchar* db_file_name = g_build_filename(

@@ -203,6 +203,10 @@ void msg_out_sqlite_invoker_push_feedback() {
 void msg_out_sqlite_init() {
 	GHashTable* opts = core_options_get();
 
+	if (sqlite3_threadsafe() == 0)
+		g_warning("ThreadSafe disabled for SQLite build!");
+	sqlite3_config(SQLITE_CONFIG_SERIALIZED);
+
 	// create config DB file name
 	gchar* db_file_name = g_build_filename(
 			(gchar*) g_hash_table_lookup(opts, "program"),
