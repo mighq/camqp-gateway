@@ -42,6 +42,10 @@ void msg_in_smpp_invoker_push_forward() {
 }
 
 gboolean msg_in_smpp_handler_receive_feedback(const message* const data) {
+	g_print("received feedback [%p]\n", data);
+
+	// doing nothing with feedback messages
+
 	return TRUE;
 }
 

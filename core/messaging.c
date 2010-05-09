@@ -235,14 +235,6 @@ void core_messaging_init() {
 	// termination
 	g_lck_termination = g_mutex_new();
 
-	// trash_receive
-	g_lck_trash_receive = g_mutex_new();
-	g_cnd_trash_receive = g_cond_new();
-
-	// forward_receive
-	g_lck_forward_receive = g_mutex_new();
-	g_cnd_forward_receive = g_cond_new();
-
 	// forward pull
 	module_producer_type mode_in = ((module_vtable_msg*) g_handlers_input->vtable)->producer_type();
 	if ((mode_in & MODULE_PRODUCER_TYPE_PULL) != 0) {
@@ -252,16 +244,28 @@ void core_messaging_init() {
 		g_lck_forward_pull = NULL;
 		g_cnd_forward_pull = NULL;
 	}
-/*
-	// forward push
-	if ((mode_in & MODULE_PRODUCER_TYPE_PUSH) != 0) {
-		g_lck_forward_push = g_mutex_new();
-		g_cnd_forward_push = g_cond_new();
+
+	// forward_receive
+	g_lck_forward_receive = g_mutex_new();
+	g_cnd_forward_receive = g_cond_new();
+
+	// feedback pull
+	module_producer_type mode_out = ((module_vtable_msg*) g_handlers_output->vtable)->producer_type();
+	if ((mode_out & MODULE_PRODUCER_TYPE_PULL) != 0) {
+		g_lck_feedback_pull = g_mutex_new();
+		g_cnd_feedback_pull = g_cond_new();
 	} else {
-		g_lck_forward_push = NULL;
-		g_cnd_forward_push = NULL;
+		g_lck_feedback_pull = NULL;
+		g_cnd_feedback_pull = NULL;
 	}
-*/
+
+	// feedback_receive
+	g_lck_feedback_receive = g_mutex_new();
+	g_cnd_feedback_receive = g_cond_new();
+
+	// trash_receive
+	g_lck_trash_receive = g_mutex_new();
+	g_cnd_trash_receive = g_cond_new();
 }
 
 void core_messaging_destroy() {
@@ -286,13 +290,10 @@ void core_messaging_destroy() {
 		g_mutex_free(g_lck_forward_pull);
 	if (g_cnd_forward_pull)
 		g_cond_free(g_cnd_forward_pull);
-/*
-	// forward push
-	if (g_lck_forward_push)
-		g_mutex_free(g_lck_forward_push);
-	if (g_cnd_forward_push)
-		g_cond_free(g_cnd_forward_push);
-*/
+
+	// feedback_receive
+	g_mutex_free(g_lck_feedback_receive);
+	g_cond_free(g_cnd_feedback_receive);
 }
 
 void core_messaging_start() {
@@ -301,21 +302,21 @@ void core_messaging_start() {
 	t_trash_receive = g_thread_create(thread_trash_receive, NULL, TRUE, NULL);
 
 	// reception of feedback
-	GThread* t_feeback_receive = NULL;
-	t_feeback_receive = g_thread_create(thread_feeback_receive, NULL, TRUE, NULL);
+	GThread* t_feedback_receive = NULL;
+	t_feedback_receive = g_thread_create(thread_feedback_receive, NULL, TRUE, NULL);
 
 	// get output module producer type
 	module_producer_type mode_out = ((module_vtable_msg*) g_handlers_output->vtable)->producer_type();
 
 	// sending of feedback (pull)
-	GThread* t_feeback_pull = NULL;
+	GThread* t_feedback_pull = NULL;
 	if ((mode_out & MODULE_PRODUCER_TYPE_PULL) != 0)
-		t_feeback_pull = g_thread_create(thread_feeback_pull, NULL, TRUE, NULL);
+		t_feedback_pull = g_thread_create(thread_feedback_pull, NULL, TRUE, NULL);
 
 	// sending of feedback (push)
-	GThread* t_feeback_push = NULL;
+	GThread* t_feedback_push = NULL;
 	if ((mode_out & MODULE_PRODUCER_TYPE_PUSH) != 0)
-		t_feeback_push = g_thread_create(thread_feeback_push, NULL, TRUE, NULL);
+		t_feedback_push = g_thread_create(thread_feedback_push, NULL, TRUE, NULL);
 
 	// reception of forward
 	GThread* t_forward_receive = NULL;
@@ -336,11 +337,11 @@ void core_messaging_start() {
 
 	// join all threads with main
 	g_thread_join(t_trash_receive);
-	g_thread_join(t_feeback_receive);
-	if (t_feeback_pull != NULL)
-		g_thread_join(t_feeback_pull);
-	if (t_feeback_push != NULL)
-		g_thread_join(t_feeback_push);
+	g_thread_join(t_feedback_receive);
+	if (t_feedback_pull != NULL)
+		g_thread_join(t_feedback_pull);
+	if (t_feedback_push != NULL)
+		g_thread_join(t_feedback_push);
 	g_thread_join(t_forward_receive);
 	if (t_forward_pull != NULL)
 		g_thread_join(t_forward_pull);
@@ -374,6 +375,32 @@ void core_handler_push_forward(message_batch* data) {
 	g_mutex_lock(g_lck_forward_receive);
 	g_cond_signal(g_cnd_forward_receive);
 	g_mutex_unlock(g_lck_forward_receive);
+}
+
+void core_handler_push_feedback(message_batch* data) {
+	message_batch* iter = data;
+	while (iter != NULL) {
+		// get current message
+		message* msg = iter->data;
+		if (msg == NULL) {
+			// skipping non-set message (shouldn't occur)
+			iter = g_slist_next(iter);
+			continue;
+		}
+
+		// add message to forward queue
+		core_queue_push(g_queue_feedback, msg);
+
+		// next
+		iter = g_slist_next(iter);
+	}
+
+	g_slist_free(data);
+
+	// waking up receiver
+	g_mutex_lock(g_lck_feedback_receive);
+	g_cond_signal(g_cnd_feedback_receive);
+	g_mutex_unlock(g_lck_feedback_receive);
 }
 
 void core_handler_push_trash(const message* const data) {

@@ -15,4 +15,6 @@ DLLIMPORT guint32		core_instance();
  */
 DLLIMPORT gboolean		core_terminated();
 
+DLLIMPORT void			core_register_condition(GCond* condition, GMutex* mutex);
+
 #endif

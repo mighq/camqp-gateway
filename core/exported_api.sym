@@ -1,5 +1,9 @@
 -K core_instance
 -K core_options_get
+-K core_register_condition
+-K core_handler_push_forward
+-K core_handler_push_feedback
+-K core_handler_push_trash
 -K core_config_isset
 -K core_config_get_bool
 -K core_config_get_int
