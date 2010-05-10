@@ -156,6 +156,7 @@ module_info* LoadModule() {
 	g_vtable->invoker_push_forward = msg_in_smpp_invoker_push_forward;
 	g_vtable->handler_pull_forward = NULL;
 	g_vtable->handler_receive_feedback = msg_in_smpp_handler_receive_feedback;
+	g_vtable->terminate_blocking = NULL;
 
 	msg_in_smpp_init();
 

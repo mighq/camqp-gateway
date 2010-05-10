@@ -15,6 +15,9 @@ void signal_handler(int signum)
 {
 	g_print("Handling signal %d\n", signum);
 
+	module_vtable_msg_input*	vt_i = core_messaging_handlers_input();
+	module_vtable_msg_output*	vt_o = core_messaging_handlers_output();
+
 	// === setup termination
 	g_mutex_lock(g_lck_termination);
 	g_termination = TRUE;
@@ -22,17 +25,29 @@ void signal_handler(int signum)
 
 	// === signal wake-ups to all handlers
 
+	// forward push
+	if (vt_i->terminate_blocking != NULL)
+		vt_i->terminate_blocking(THREAD_TYPE_FORWARD_PUSH);
+
 	// forward pull
 	if (g_lck_forward_pull != NULL) {
 		g_mutex_lock(g_lck_forward_pull);
 		g_cond_signal(g_cnd_forward_pull);
 		g_mutex_unlock(g_lck_forward_pull);
 	}
+	if (vt_i->terminate_blocking != NULL)
+		vt_i->terminate_blocking(THREAD_TYPE_FORWARD_PULL);
 
 	// forward receiver
 	g_mutex_lock(g_lck_forward_receive);
 	g_cond_signal(g_cnd_forward_receive);
 	g_mutex_unlock(g_lck_forward_receive);
+	if (vt_o->terminate_blocking != NULL)
+		vt_o->terminate_blocking(THREAD_TYPE_FORWARD_RECV);
+
+	// feedback push
+	if (vt_o->terminate_blocking != NULL)
+		vt_o->terminate_blocking(THREAD_TYPE_FEEDBACK_PUSH);
 
 	// feedback pull
 	if (g_lck_feedback_pull != NULL) {
@@ -40,27 +55,20 @@ void signal_handler(int signum)
 		g_cond_signal(g_cnd_feedback_pull);
 		g_mutex_unlock(g_lck_feedback_pull);
 	}
+	if (vt_o->terminate_blocking != NULL)
+		vt_o->terminate_blocking(THREAD_TYPE_FEEDBACK_PULL);
 
 	// feedback receiver
 	g_mutex_lock(g_lck_feedback_receive);
 	g_cond_signal(g_cnd_feedback_receive);
 	g_mutex_unlock(g_lck_feedback_receive);
+	if (vt_i->terminate_blocking != NULL)
+		vt_i->terminate_blocking(THREAD_TYPE_FEEDBACK_RECV);
 
 	// trash receiver
 	g_mutex_lock(g_lck_trash_receive);
 	g_cond_signal(g_cnd_trash_receive);
 	g_mutex_unlock(g_lck_trash_receive);
-
-	// signalize all external conditions
-	GSList* list = g_conditions;
-	while (list != NULL) {
-		condition_info* ci = (condition_info*) list->data;
-		g_mutex_lock(ci->mutex);
-		g_cond_broadcast(ci->condition);
-		g_mutex_unlock(ci->mutex);
-
-		list = list->next;
-	}
 }
 
 void core_init() {
@@ -101,33 +109,12 @@ void core_init() {
 	// allocate global variables
 	g_options = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
 	g_modules = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) core_module_unload_ptr);
-
-	g_conditions = NULL;
 }
 
 void core_destroy() {
 	// destroy global variables
 	g_hash_table_destroy(g_options);
 	g_hash_table_destroy(g_modules);
-
-	// delete all external condition entries
-	GSList* list = g_conditions;
-	while (list != NULL) {
-		condition_info* ci = (condition_info*) list->data;
-		g_free(ci);
-
-		list = list->next;
-	}
-	g_slist_free(g_conditions);
-}
-
-void core_register_condition(GCond* condition, GMutex* mutex) {
-	condition_info* ci = g_try_new0(condition_info, 1);
-
-	ci->condition = condition;
-	ci->mutex = mutex;
-
-	g_conditions = g_slist_append(g_conditions, ci);
 }
 
 int main(gint argc, gchar* argv[]) {

@@ -13,4 +13,14 @@ typedef struct {
 	module_producer_type (*producer_type) ();
 } module_vtable_msg;
 
+typedef enum {
+	THREAD_TYPE_TRASH_RECV = 0,
+	THREAD_TYPE_FORWARD_PUSH,
+	THREAD_TYPE_FORWARD_PULL,
+	THREAD_TYPE_FORWARD_RECV,
+	THREAD_TYPE_FEEDBACK_PUSH,
+	THREAD_TYPE_FEEDBACK_PULL,
+	THREAD_TYPE_FEEDBACK_RECV
+} thread_type;
+
 #endif

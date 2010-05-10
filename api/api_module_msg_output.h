@@ -12,6 +12,8 @@ typedef struct {
 
 	message_batch*			(*handler_pull_feedback)	();
 	gboolean				(*handler_receive_forward)	(const message* const data);
+
+	void					(*terminate_blocking)		(thread_type thread);
 } module_vtable_msg_output;
 
 // function which returns vtable for that module

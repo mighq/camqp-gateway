@@ -19,6 +19,19 @@ static message_batch*				acks;
 // exported functions
 module_producer_type msg_out_sqlite_producer_type() { return MODULE_PRODUCER_TYPE_PUSH; }
 
+void msg_out_sqlite_terminate_blocking(thread_type thread) {
+	switch (thread) {
+		case THREAD_TYPE_FEEDBACK_PUSH:
+			g_mutex_lock(g_lck_switch);
+			g_cond_signal(g_cnd_switch);
+			g_mutex_unlock(g_lck_switch);
+			break;
+		default:
+			// do nothing
+			break;
+	}
+}
+
 gboolean db_query_empty(gchar* query) {
 	gint ret;
 	sqlite3_stmt* stmt;
@@ -254,11 +267,11 @@ module_info* LoadModule() {
 	g_vtable->handler_receive_forward = msg_out_sqlite_handler_receive_forward;
 	g_vtable->invoker_push_feedback = msg_out_sqlite_invoker_push_feedback;
 	g_vtable->handler_pull_feedback = NULL;
+	g_vtable->terminate_blocking = msg_out_sqlite_terminate_blocking;
 
 	// context switching, init condition & register it to core
 	g_lck_switch = g_mutex_new();
 	g_cnd_switch = g_cond_new();
-	core_register_condition(g_cnd_switch, g_lck_switch);
 
 	acks = NULL;
 	msg_out_sqlite_init();
