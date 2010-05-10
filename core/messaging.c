@@ -354,7 +354,7 @@ void core_messaging_start() {
 
 // core message handlers
 
-void core_handler_push_forward(message_batch* data) {
+gboolean core_handler_push_forward(message_batch* data) {
 	message_batch* iter = data;
 	while (iter != NULL) {
 		// get current message
@@ -378,9 +378,11 @@ void core_handler_push_forward(message_batch* data) {
 	g_mutex_lock(g_lck_forward_receive);
 	g_cond_signal(g_cnd_forward_receive);
 	g_mutex_unlock(g_lck_forward_receive);
+
+	return TRUE;
 }
 
-void core_handler_push_feedback(message_batch* data) {
+gboolean core_handler_push_feedback(message_batch* data) {
 	message_batch* iter = data;
 	while (iter != NULL) {
 		// get current message
@@ -404,11 +406,13 @@ void core_handler_push_feedback(message_batch* data) {
 	g_mutex_lock(g_lck_feedback_receive);
 	g_cond_signal(g_cnd_feedback_receive);
 	g_mutex_unlock(g_lck_feedback_receive);
+
+	return TRUE;
 }
 
-void core_handler_push_trash(const message* const data) {
+gboolean core_handler_push_trash(const message* const data) {
 	if (data == NULL)
-		return;
+		return TRUE;
 
 	// add to trash queue
 	core_queue_push(g_queue_trash, (message*) data);
@@ -417,6 +421,8 @@ void core_handler_push_trash(const message* const data) {
 	g_mutex_lock(g_lck_trash_receive);
 	g_cond_signal(g_cnd_trash_receive);
 	g_mutex_unlock(g_lck_trash_receive);
+
+	return TRUE;
 }
 
 guint32 core_sequence_next() {
