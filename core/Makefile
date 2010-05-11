@@ -14,6 +14,7 @@ DIR_ROOT=..
 
 DIR_API=${DIR_ROOT}/api
 DIR_DIST=${DIR_ROOT}/dist
+DIR_DIST_LIB=${DIR_DIST}/libs
 
 DIR_GLIB=/usr
 
@@ -39,7 +40,7 @@ LFLAGS=-Wl,--export-dynamic
 DIR_TMP=tmp
 DIR_DEBUG=debug
 
-TEST_OPTIONS=-c sqlite 1
+TEST_OPTIONS=-c sqlite 2
 
 # computed parts
 OBJS=$(patsubst %.c,${DIR_TMP}/%.o,${SOURCES})
@@ -84,7 +85,7 @@ test-env:
 
 test: ${TARGET} test-env
 	@echo "---===---"
-	@${TARGET} ${TEST_OPTIONS}
+	@LD_LIBRARY_PATH="${DIR_DIST_LIB}:${LD_LIBRARY_PATH}" ${TARGET} ${TEST_OPTIONS}
 
 check: ${TARGET} test-env
 	@echo "---=TEST=---"

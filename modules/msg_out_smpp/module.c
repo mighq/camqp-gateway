@@ -1,7 +1,22 @@
 #include <api_module_msg_output.h>
 #include <api_core_messaging.h>
 #include <api_core.h>
+
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include <errno.h>
+
+#include <smpp34.h>
+#include <smpp34_structs.h>
+#include <smpp34_params.h>
 
 static module_info*					g_module_info;
 static module_vtable_msg_output*	g_vtable;
@@ -10,6 +25,107 @@ static GCond*						g_cnd_switch;
 static GMutex*						g_lck_switch;
 
 static message_batch*				acks;
+
+gint								g_socket;
+
+	extern int  smpp34_errno;
+	extern char smpp34_strerror[2048];
+
+void msg_out_smpp_init() {
+	// connect to SMSC
+	g_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (g_socket == -1) {
+		g_print("Error in socket()\n");
+		return;
+	};
+
+	struct sockaddr_in address;
+	socklen_t addr_len = sizeof(address);
+	memset(&address, '\x00', addr_len);
+
+	address.sin_family =		PF_INET;
+	address.sin_port =			htons(8001);
+	address.sin_addr.s_addr =	inet_addr("192.168.108.2");
+
+	if (connect(g_socket, (struct sockaddr*) &address, addr_len) != 0){
+		g_print("Error in connect %d\n", errno);
+		perror(NULL);
+		return;
+	};
+
+	// === bind as transmiter
+
+	//---
+	bind_transmitter_t      req;
+	bind_transmitter_resp_t res;
+	memset(&req, 0, sizeof(bind_transmitter_t));
+	memset(&res, 0, sizeof(bind_transmitter_resp_t));
+	//---
+	req.command_length   = 0;
+	req.command_id       = BIND_TRANSMITTER;
+	req.command_status   = ESME_ROK;
+	req.sequence_number  = 1; // TODO
+	strcpy(req.system_id, "pavel");
+	strcpy(req.password, "wpsd");
+	strcpy(req.system_type, "type01");
+	req.interface_version = SMPP_VERSION;
+	//---
+	int ret = 0;
+	char local_buffer[1024];
+	int  local_buffer_len = 0;
+	char print_buffer[2048];
+	uint32_t tempo = 0;
+	uint32_t cmd_id = 0;
+	//---
+#include "pack_and_send.inc"
+	//---
+#include "recv_and_unpack.inc"
+	//---
+	destroy_tlv( res.tlv );
+	//---
+	if( res.command_id != BIND_TRANSMITTER_RESP ||
+			res.command_status != ESME_ROK ){
+		printf("Error in BIND(BIND_TRANSMITTER)[%d:%d]\n",
+				res.command_id, res.command_status);
+		return;
+	};
+}
+
+void msg_out_smpp_destroy() {
+	// === unbind
+
+	//---
+	unbind_t      req;
+	unbind_resp_t res;
+	memset(&req, 0, sizeof(unbind_t));
+	memset(&res, 0, sizeof(unbind_resp_t));
+	//---
+	req.command_length   = 0;
+	req.command_id       = UNBIND;
+	req.command_status   = ESME_ROK;
+	req.sequence_number  = 2; //TODO
+	//---
+	int ret = 0;
+	char local_buffer[1024];
+	int  local_buffer_len = 0;
+	char print_buffer[2048];
+	uint32_t tempo = 0;
+	uint32_t cmd_id = 0;
+	//---
+#include "pack_and_send.inc"
+	//---
+#include "recv_and_unpack.inc"
+	//---
+	if( res.command_id != UNBIND_RESP ||
+			res.command_status != ESME_ROK ){
+		printf("Error in send(UNBIND)[%d:%d]\n",
+				res.command_id, res.command_status);
+		return;
+	};
+
+	// disconnect
+	close(g_socket);
+}
 
 // exported functions
 module_producer_type msg_out_smpp_producer_type() { return MODULE_PRODUCER_TYPE_PUSH; }
@@ -33,9 +149,13 @@ void msg_out_smpp_terminate_blocking(thread_type thread) {
 gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 	g_print("received out [%p]\n", data);
 
+	// === parse data
 	gchar* txt_sender = NULL;
 	gchar* txt_recipient = NULL;
 	gchar* txt_text = NULL;
+
+	guint32 tmp = *((guint32*) &data->data[0]);
+	guint32 msg_pk = ntohl(tmp);
 
 	txt_sender = (gchar*) &data->data[5];
 
@@ -51,15 +171,47 @@ gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 	}
 	txt_text++;
 
-	// create reply message
-	gboolean ret = rand() > (RAND_MAX/2);
+	// === send message
 
+	//---
+	submit_sm_t      req;
+	submit_sm_resp_t res;
+	memset(&req, 0, sizeof(submit_sm_t));
+	memset(&res, 0, sizeof(submit_sm_resp_t));
+	//---
+	req.command_length   = 0;
+	req.command_id       = SUBMIT_SM;
+	req.command_status   = ESME_ROK;
+	req.sequence_number  = msg_pk;
+	strcpy(req.source_addr, txt_sender);
+	strcpy(req.destination_addr, txt_recipient);
+	req.sm_length           = strlen(txt_text);
+	strcpy(req.short_message, txt_text);
+	//---
+	int ret = 0;
+	char local_buffer[1024];
+	int  local_buffer_len = 0;
+	char print_buffer[2048];
+	uint32_t tempo = 0;
+	uint32_t cmd_id = 0;
+	//
+#include "pack_and_send.inc"
+	//---
+#include "recv_and_unpack.inc"
+	//---
+	gboolean send_success = TRUE;
+	if (res.command_id != SUBMIT_SM_RESP || res.command_status != ESME_ROK ) {
+		send_success = FALSE;
+		printf("Error in send(SUBMIT_SM)[%d:%d]\n", res.command_id, res.command_status);
+	};
+
+	// === create reply message
 	message* msg = message_new();
 	g_print("generating reply msg [%p]\n", msg);
 
 	g_byte_array_append(msg, (guint8*) &data->data[0],		4); // sequence no of original
 	g_byte_array_append(msg, (guint8*) "\x00",				1);
-	g_byte_array_append(msg, (guint8*) (ret ? "1" : "0"),	1); // ack/nack
+	g_byte_array_append(msg, (guint8*) (send_success ? "1" : "0"),	1); // ack/nack
 	g_byte_array_append(msg, (guint8*) "\x00",				1);
 
 	// add to ack batch
@@ -128,10 +280,14 @@ module_info* LoadModule() {
 
 	acks = NULL;
 
+	msg_out_smpp_init();
+
 	return g_module_info;
 }
 
 gboolean UnloadModule() {
+	msg_out_smpp_destroy();
+
 	g_free(g_module_info->name);
 	g_free(g_module_info);
 	g_free(g_vtable);

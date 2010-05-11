@@ -9,11 +9,20 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+
+#include <smpp34.h>
+#include <smpp34_structs.h>
+#include <smpp34_params.h>
+
+#include <errno.h>
 
 static module_info*				g_module_info;
 static module_vtable_msg_input*	g_vtable;
 
 static gint						g_socket_server;
+static gint						g_socket_client;
+static int						g_state;
 
 // init & destroy
 void msg_in_smpp_init() {
@@ -31,6 +40,8 @@ void msg_in_smpp_init() {
 
 	// listen on socket
 	listen(g_socket_server, 3/*max clients in queue*/);
+
+	g_state = 0;
 }
 
 void msg_in_smpp_destroy() {
@@ -49,83 +60,202 @@ void msg_in_smpp_invoker_push_forward() {
 	if (core_terminated())
 		return;
 
-	// wait for new connection on socket
-	struct sockaddr	address;
-	socklen_t		addr_len = sizeof(address);
-	gint connection = accept(g_socket_server, &address, &addr_len);
+	// wait for connection
+	if (g_state == 0) {
+		// wait for new connection on socket
+		struct sockaddr	address;
+		socklen_t		addr_len = sizeof(address);
+		g_socket_client = accept(g_socket_server, &address, &addr_len);
 
-	// do nothing if core have terminated already
-	if (core_terminated())
+		// do nothing if core have terminated already
+		if (core_terminated())
+			return;
+
+		g_print("new connection\n");
+
+		// connected
+		g_state = 1;
+
+		//=== receive bind
+
+		bind_transmitter_t res;
+		memset(&res, 0, sizeof(bind_transmitter_t));
+
+		//---
+		int ret = 0;
+		char local_buffer[1024];
+		int  local_buffer_len = 0;
+		char print_buffer[2048];
+		uint32_t tempo = 0;
+		uint32_t cmd_id = 0;
+		//---
+		memset(local_buffer, 0, sizeof(local_buffer));
+		/* Read from socket (This is a sample, must be more complex) **********/
+		ret = recv(g_socket_client, local_buffer, 4, MSG_PEEK); 
+		if( ret != 4 ){ printf("Error in recv(PEEK)\n");return;};
+		memcpy(&tempo, local_buffer, sizeof(uint32_t)); /* get lenght PDU */
+		local_buffer_len = ntohl( tempo );
+		ret = recv(g_socket_client, local_buffer, local_buffer_len, 0); 
+		if( ret != local_buffer_len ){
+			printf("Error in recv(%d bytes)\n", local_buffer_len);return;};
+		/* Print Buffer *******************************************************/
+		memset(print_buffer, 0, sizeof(print_buffer));
+		ret = smpp34_dumpBuf(print_buffer, sizeof(print_buffer), 
+				local_buffer, local_buffer_len);
+		if( ret != 0 ){ printf("Error in smpp34_dumpBuf():%d:\n%s\n",
+				smpp34_errno, smpp34_strerror ); return; };
+		printf("-----------------------------------------------------------\n");
+		printf("RECEIVE BUFFER \n%s\n", print_buffer);
+		/* unpack PDU *********************************************************/
+		memcpy(&tempo, local_buffer+4, sizeof(uint32_t)); /* get command_id PDU */
+		cmd_id = ntohl( tempo );
+		ret = smpp34_unpack(cmd_id, (void*)&res, local_buffer, local_buffer_len);
+		if( ret != 0){ printf( "Error in smpp34_unpack():%d:%s\n",
+				smpp34_errno, smpp34_strerror); return; };
+		/* Print PDU **********************************************************/
+		memset(print_buffer, 0, sizeof(print_buffer));
+		ret = smpp34_dumpPdu( res.command_id, print_buffer,
+				sizeof(print_buffer), (void*)&res);
+		if( ret != 0){ printf("Error in smpp34_dumpPdu():%d:\n%s\n",
+				smpp34_errno, smpp34_strerror); return; };
+		printf("RECEIVE PDU \n%s\n", print_buffer);
+
+		//=== reply bind
+		bind_transmitter_resp_t req;
+		memset(&req, 0, sizeof(bind_transmitter_resp_t));
+		//---
+		req.command_length   = 0;
+		req.command_id       = BIND_TRANSMITTER_RESP;
+		req.command_status   = ESME_ROK;
+		req.sequence_number  = res.sequence_number;
+		//---
+		#include "pack_and_send.inc"
+		//---
+
+		// bond
+		g_state  = 2;
+
+		return;
+	}
+
+	if (g_state != 2)
 		return;
 
-	g_print("new connection\n");
+	// get command (deliver & unbind)
 
-	// get message from socket
-	message* raw = message_new();
-	guint buflen = 128;
-	guchar* buf = g_try_new0(guchar, buflen);
-	guint len = 0;
-	do {
-		len = recv(connection, buf, buflen, 0);
-		if (len > 0)
-			g_byte_array_append(raw, (guint8*) buf, len);
-		else
-			break;
-	} while (len == buflen);
-	g_free(buf);
+	//---
+	int ret = 0;
+	char local_buffer[1024];
+	int  local_buffer_len = 0;
+	char print_buffer[2048];
+	uint32_t tempo = 0;
+	uint32_t cmd_id = 0;
+	//---
+	memset(local_buffer, 0, sizeof(local_buffer));
 
-	// parse data
+	ret = recv(g_socket_client, local_buffer, 4, MSG_PEEK);
+	if( ret != 4 ){ printf("Error in recv(PEEK) %d\n", ret); return;};
 
-	gchar* txt_sender = NULL;
-	gchar* txt_recipient = NULL;
-	gchar* txt_text = NULL;
+	memcpy(&tempo, local_buffer, sizeof(uint32_t)); /* get lenght PDU */
+	local_buffer_len = ntohl( tempo );
 
-	txt_sender = (gchar*) raw->data;
+	ret = recv(g_socket_client, local_buffer, local_buffer_len, 0);
+	if( ret != local_buffer_len ){
+		printf("Error in recv(%d bytes)\n", local_buffer_len);return;};
 
-	for (txt_recipient = txt_sender; ; txt_recipient++) {
-		if (*txt_recipient == '\x00')
-			break;
+	memcpy(&tempo, local_buffer+4, sizeof(uint32_t)); /* get command_id PDU */
+	cmd_id = ntohl( tempo );
+	//---
+
+	if (cmd_id == SUBMIT_SM) {
+		//=== deliver sms
+		submit_sm_t res;
+		memset(&res, 0, sizeof(submit_sm_t));
+
+		ret = smpp34_unpack(cmd_id, (void*)&res, local_buffer, local_buffer_len);
+		if( ret != 0){ printf( "Error in smpp34_unpack():%d:%s\n",
+				smpp34_errno, smpp34_strerror); return; };
+
+		memset(print_buffer, 0, sizeof(print_buffer));
+		ret = smpp34_dumpPdu( res.command_id, print_buffer,
+				sizeof(print_buffer), (void*)&res);
+		if( ret != 0){ printf("Error in smpp34_dumpPdu():%d:\n%s\n",
+				smpp34_errno, smpp34_strerror); return; };
+		printf("RECEIVE PDU \n%s\n", print_buffer);
+
+
+		// ===
+			// create message
+			message* msg = message_new();
+
+			g_print("generating msg [%p]\n", msg);
+
+			guint32 seq = core_sequence_next();
+			guint32 tmp = htonl(seq);
+
+			g_byte_array_append(msg, (guint8*) &tmp, 4);
+			g_byte_array_append(msg, (guint8*) "\x00", 1);
+			g_byte_array_append(msg, (guint8*) res.source_addr, strlen(res.source_addr));
+			g_byte_array_append(msg, (guint8*) "\x00", 1);
+			g_byte_array_append(msg, (guint8*) res.destination_addr, strlen(res.destination_addr));
+			g_byte_array_append(msg, (guint8*) "\x00", 1);
+			g_byte_array_append(msg, (guint8*) res.short_message, strlen(res.short_message));
+			g_byte_array_append(msg, (guint8*) "\x00", 1);
+
+			// add to batch
+			message_batch* batch = NULL;
+			batch = g_slist_append(batch, msg);
+
+			// send batch to core
+			core_handler_push_forward(batch);
+
+
+		//=== send response
+		submit_sm_resp_t req;
+		memset(&req, 0, sizeof(submit_sm_resp_t));
+
+		req.command_length   = 0;
+		req.command_id       = SUBMIT_SM_RESP;
+		req.command_status   = ESME_ROK;
+		req.sequence_number  = res.sequence_number;
+		//---
+		#include "pack_and_send.inc"
+		//---
+	} else if (cmd_id == UNBIND) {
+		unbind_t res;
+		memset(&res, 0, sizeof(unbind_t));
+
+		ret = smpp34_unpack(cmd_id, (void*)&res, local_buffer, local_buffer_len);
+		if( ret != 0){ printf( "Error in smpp34_unpack():%d:%s\n",
+				smpp34_errno, smpp34_strerror); return; };
+
+		memset(print_buffer, 0, sizeof(print_buffer));
+		ret = smpp34_dumpPdu( res.command_id, print_buffer,
+				sizeof(print_buffer), (void*)&res);
+		if( ret != 0){ printf("Error in smpp34_dumpPdu():%d:\n%s\n",
+				smpp34_errno, smpp34_strerror); return; };
+		printf("RECEIVE PDU \n%s\n", print_buffer);
+
+		// unbind
+		g_state = 0;
+
+		//=== reply bind
+		unbind_resp_t req;
+		memset(&req, 0, sizeof(unbind_resp_t));
+		//---
+		req.command_length   = 0;
+		req.command_id       = UNBIND_RESP;
+		req.command_status   = ESME_ROK;
+		req.sequence_number  = res.sequence_number;
+		//---
+		#include "pack_and_send.inc"
+		//---
+
+		close(g_socket_client);
+	} else {
+		// close connection to client
+		close(g_socket_client);
 	}
-	txt_recipient++;
-
-	for (txt_text = txt_recipient; ; txt_text++) {
-		if (*txt_text == '\x00')
-			break;
-	}
-	txt_text++;
-
-	// create message
-	message* msg = message_new();
-
-	g_print("generating msg [%p]\n", msg);
-
-	guint32 seq = core_sequence_next();
-	guint32 tmp = htonl(seq);
-
-	g_byte_array_append(msg, (guint8*) &tmp, 4);
-	g_byte_array_append(msg, (guint8*) "\x00", 1);
-	g_byte_array_append(msg, (guint8*) txt_sender, strlen(txt_sender));
-	g_byte_array_append(msg, (guint8*) "\x00", 1);
-	g_byte_array_append(msg, (guint8*) txt_recipient, strlen(txt_recipient));
-	g_byte_array_append(msg, (guint8*) "\x00", 1);
-	g_byte_array_append(msg, (guint8*) txt_text, strlen(txt_text));
-	g_byte_array_append(msg, (guint8*) "\x00", 1);
-
-	message_free(raw);
-
-	// add to batch
-	message_batch* batch = NULL;
-	batch = g_slist_append(batch, msg);
-
-	// send batch to core
-	core_handler_push_forward(batch);
-
-	// send reply to client
-	send(connection, "1\x00", 2, 0);
-
-	// close connection to client
-	g_print("closing connection\n");
-	close(connection);
 }
 
 gboolean msg_in_smpp_handler_receive_feedback(const message* const data) {
