@@ -1,0 +1,38 @@
+= Pont-To-Point Request-Reply Messaging Agent =
+
+''as Master diploma thesis'' by Michal Zubac
+
+
+== Requirements ==
+* component based messaging solution
+* point-to-point middleware with request-reply semantic
+* custom endpoint plugins at input and output
+* one application with configurable modules for each usage
+* support for both polling and event-driven endpoints
+* sync/async request-reply behaviour is implemented in endpoints
+* standalone application providing single p2p connection
+* multiple instances using one codebase/binaries with various configurations
+* many independent instances on many hosts
+* __no__ centralized messaging system with TCP/IP connected endpoints
+* logging capabilities
+* RRD statistics of message flow
+* guaranteed delivery for channels
+* optional, configurable
+* in memory/storage queues
+* C/C++ language for implementation
+* preferable multiplatform unix/windows solution
+* endpoint plugin examples
+* input
+* PostgreSQL database
+* GSM cellular phone with SIM card
+* FastCGI
+* HTTP POST
+* XML-RPC
+* SOAP
+* custom PHP script executed trough FastCGI
+* output
+* PostgreSQL database
+* HTTP POST
+* XML-RPC
+* SOAP
+* custom PHP script
