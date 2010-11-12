@@ -1,0 +1,13 @@
+* logovanie
+	do suboru
+* osetrenie chyb pri starte a neuspesnej inicializacii pluginov
+* lepsie vypisy:
+	log nastavenia pluginov => instancie
+	vypis co vlastne budes robi
+* nejak rozumne spristupnit funkcie jadra
+
+* vnutorny protokol nejak jednoducho navrhnut
+	* uuid spravy
+	* uuid odpovede
+
+* protokol specialne pre SMS
