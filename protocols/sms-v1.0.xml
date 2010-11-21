@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 
+<!-- protocol for transfer of SMS messages -->
 <amqp
 	name="sms-v1.0"
 	xmlns="http://www.amqp.org/schema/amqp.xsd"
@@ -11,7 +12,13 @@
 		xpointer="xmlns(ns=http://www.amqp.org/schema/amqp.xsd)xpointer(/ns:amqp/ns:section[@name='encodings'])"
 	/>
 
-	<section name="sms">
-		
+	<section name="general">
+		<type name="sms" class="composite" source="list">
+			<descriptor code="0x0001"/>
+
+			<field name="sender" type="string" mandatory="true"/>
+			<field name="recipient" type="string" mandatory="true"/>
+			<field name="text" type="string" mandatory="true"/>
+		</type>
 	</section>
 </amqp>

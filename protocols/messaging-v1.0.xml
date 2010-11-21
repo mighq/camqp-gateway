@@ -11,10 +11,9 @@
 		xpointer="xmlns(ns=http://www.amqp.org/schema/amqp.xsd)xpointer(/ns:amqp/ns:section[@name='encodings'])"
 	/>
 
-	<!-- messages definition -->
-	<section name="messages">
+	<section name="general">
 		<type name="request" class="composite" source="list">
-			<descriptor name="core-messaging:request:list" code="0x00010000:0x00000001"/>
+			<descriptor code="0x0001"/>
 
 			<field name="id" type="uuid" mandatory="true"/>
 			<field name="protocol" type="string"/>
@@ -22,7 +21,7 @@
 		</type>
 
 		<type name="response" class="composite" source="list">
-			<descriptor name="core-messaging:response:list" code="0x00010000:0x00000002"/>
+			<descriptor code="0x0002"/>
 
 			<field name="id" type="uuid" mandatory="true"/>
 			<field name="correlation" type="uuid" mandatory="true"/>
