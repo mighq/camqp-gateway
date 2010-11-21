@@ -3,16 +3,20 @@
 <!--
   Copyright Notice
   ================
-  (c) Copyright Cisco Systems, Credit Suisse, Deutsche Börse Systems, Envoy Technologies, Inc.,
-  Goldman Sachs, IONA Technologies PLC, iMatix Corporation sprl.,JPMorgan Chase Bank Inc. N.A, 
-  Novell, Rabbit Technologies Ltd., Red Hat, Inc., TWIST Process Innovations ltd, and 29West Inc
-  2006, 2007. All rights reserved.
+  (c) Copyright Bank of America, N.A., Barclays Bank PLC, Cisco Systems, Credit Suisse, Deutsche
+      Boerse Systems, Envoy Technologies Inc., Goldman Sachs, INETCO Systems Limited, JPMorgan Chase
+      Bank Inc. N.A, Microsoft Corporation, Novell, Progress Software, Rabbit Technologies Ltd.,
+      Red Hat Inc., Solace Systems Inc., Tervela Inc., TWIST Process Innovations Ltd, WS02 Inc. and
+      29West Inc 2006-2010. All rights reserved.
 
   License
   =======
-  JPMorgan Chase Bank & Co., Cisco Systems, Inc., Envoy Technologies Inc., iMatix Corporation, IONA
-  Technologies, Red Hat, Inc., TWIST Process Innovations, and 29West Inc. (collectively, the
-  "Authors") each hereby grants to you a worldwide, perpetual, royalty-free, nontransferable,
+
+  Bank of America, N.A., Barclays Bank PLC, Cisco Systems, Credit Suisse, Deutsche Boerse Systems,
+  Envoy Technologies Inc., Goldman Sachs, INETCO Systems Limited, JPMorgan Chase Bank Inc. N.A,
+  Microsoft Corporation, Novell, Progress Software, Rabbit Technologies Ltd., Red Hat Inc., Solace
+  Systems Inc., Tervela Inc., TWIST Process Innovations Ltd, WS02 Inc. and 29West Inc. (collectively,
+  the "Authors") each hereby grants to you a worldwide, perpetual, royalty-free, nontransferable,
   nonexclusive license to (i) copy, display, distribute and implement the Advanced Messaging Queue
   Protocol ("AMQP") Specification and (ii) the Licensed Claims that are held by the Authors, all for
   the purpose of implementing the Advanced Messaging Queue Protocol Specification. Your license and
@@ -81,166 +85,129 @@
   "JPMorgan", "JPMorgan Chase", "Chase", the JPMorgan Chase logo and the Octagon Symbol are
   trademarks of JPMorgan Chase & Co.
 
-  IMATIX and the iMatix logo are trademarks of iMatix Corporation sprl.
-
-  IONA, IONA Technologies, and the IONA logos are trademarks of IONA Technologies PLC and/or its
-  subsidiaries.
-
-  LINUX is a trademark of Linus Torvalds. RED HAT and JBOSS are registered trademarks of Red Hat,
-  Inc. in the US and other countries.
+  RED HAT is a registered trademarks of Red Hat, Inc. in the US and other countries.
 
   Java, all Java-based trademarks and OpenOffice.org are trademarks of Sun Microsystems, Inc. in the
   United States, other countries, or both.
 
   Other company, product, or service names may be trademarks or service marks of others.
 
-  Links to full AMQP specification:
+  Link to full AMQP specification:
   =================================
-  http://www.envoytech.org/spec/amq/
-  http://www.iona.com/opensource/amqp/
-  http://www.redhat.com/solutions/specifications/amqp/
-  http://www.twiststandards.org/tiki-index.php?page=AMQ
-  http://www.imatix.com/amqp
+  http://www.amqp.org/confluence/display/AMQP/AMQP+Specification
 -->
 
-<!ELEMENT amqp (doc|type|struct|domain|constant|class)*>
+<!ELEMENT amqp (doc|section)*>
 <!ATTLIST amqp
-    xmlns CDATA #IMPLIED
-	major CDATA #REQUIRED
-	minor CDATA #REQUIRED
-	port CDATA #REQUIRED
-	comment CDATA #IMPLIED
+          xmlns CDATA #IMPLIED
+          name CDATA #REQUIRED
+	  label CDATA #IMPLIED
 >
 
-<!ELEMENT constant (doc|rule)*>
-<!ATTLIST constant
-	name CDATA #REQUIRED
-	value CDATA #REQUIRED
-	label CDATA #IMPLIED
+<!ELEMENT section (doc|definition|type)*>
+<!ATTLIST section
+          name CDATA #REQUIRED
+          xmlns CDATA #IMPLIED
+          title CDATA #IMPLIED
+          label CDATA #IMPLIED
 >
 
-<!ELEMENT type (doc|rule)*>
+<!ELEMENT definition (doc)*>
+<!ATTLIST definition
+	  name CDATA #REQUIRED
+	  value CDATA #REQUIRED
+	  label CDATA #IMPLIED
+>
+
+<!ELEMENT type (encoding|descriptor|field|choice|error|doc)*>
 <!ATTLIST type
-        name CDATA #REQUIRED
-        label CDATA #IMPLIED
-        code CDATA #IMPLIED
-        fixed-width CDATA #IMPLIED
-        variable-width CDATA #IMPLIED
+          name CDATA #REQUIRED
+          class (primitive|composite|restricted|union) #REQUIRED
+          source CDATA #IMPLIED
+          provides CDATA #IMPLIED
+          label CDATA #IMPLIED
 >
 
-<!ELEMENT domain (doc|rule|enum)*>
-<!ATTLIST domain
-	name CDATA #REQUIRED
-	type CDATA #IMPLIED
-	label CDATA #IMPLIED
+<!ELEMENT encoding (doc)*>
+<!ATTLIST encoding
+          name CDATA #IMPLIED
+          label CDATA #IMPLIED
+          code CDATA #REQUIRED
+          category (fixed|variable|compound|array) #REQUIRED
+          width CDATA #IMPLIED
 >
 
-<!ELEMENT struct (field|doc|rule)*>
-<!ATTLIST struct
-        name CDATA #REQUIRED
-        label CDATA #IMPLIED
-        size (0|1|2|4) #IMPLIED
-        pack (0|1|2|4) #IMPLIED
-        code CDATA #IMPLIED>
 
-<!ELEMENT enum (choice)*>
-
-<!ELEMENT choice (doc|rule)*>
-<!ATTLIST choice
-        name CDATA #REQUIRED
-        value CDATA #REQUIRED
+<!ELEMENT descriptor (doc)*>
+<!ATTLIST descriptor
+          name CDATA #IMPLIED
+          code CDATA #IMPLIED
 >
 
-<!ELEMENT class (doc|role|rule|struct|domain|control|command)*>
-<!ATTLIST class
-	name CDATA #REQUIRED
-	code CDATA #REQUIRED
-	label CDATA #IMPLIED
->
-
-<!ELEMENT role (doc|rule)*>
-<!ATTLIST role
-        name CDATA #REQUIRED
-        implement (MAY|SHOULD|MUST) #REQUIRED
->
-
-<!ELEMENT control (doc|implement|rule|field|response)*>
-<!ATTLIST control
-	name CDATA #REQUIRED
-	code CDATA #REQUIRED
-	label CDATA #IMPLIED
->
-
-<!ELEMENT command ((doc|implement|rule|exception|field|response)*, result?, segments?)>
-<!ATTLIST command
-	name CDATA #REQUIRED
-	code CDATA #REQUIRED
-	label CDATA #IMPLIED
->
-
-<!ELEMENT implement (doc|rule)*>
-<!ATTLIST implement
-        role CDATA #REQUIRED
-	handle (MAY|SHOULD|MUST) #REQUIRED
-        send (MAY|SHOULD|MUST) #IMPLIED
->
-
-<!ELEMENT field (doc|rule|exception)*>
+<!ELEMENT field (doc|error)*>
 <!ATTLIST field
-	name CDATA #REQUIRED
-	type CDATA #IMPLIED
-        default CDATA #IMPLIED
-	code CDATA #IMPLIED
-	label CDATA #IMPLIED
-	required CDATA #IMPLIED
+	  name CDATA #REQUIRED
+	  type CDATA #IMPLIED
+          requires CDATA #IMPLIED
+          default CDATA #IMPLIED
+          label CDATA #IMPLIED
+          mandatory CDATA #IMPLIED
+          multiple CDATA #IMPLIED
 >
 
-<!ELEMENT rule (doc*)>
-<!ATTLIST rule
-	name CDATA #REQUIRED
-	label CDATA #IMPLIED
+<!ELEMENT choice (doc)*>
+<!ATTLIST choice
+          name CDATA #REQUIRED
+          value CDATA #REQUIRED
 >
 
-<!ELEMENT exception (doc*)>
-<!ATTLIST exception
-	name CDATA #REQUIRED
-	error-code CDATA #IMPLIED
-	label CDATA #IMPLIED
+<!ELEMENT error (doc)*>
+<!ATTLIST error
+	  name CDATA #REQUIRED
+          type CDATA #REQUIRED
+	  value CDATA #REQUIRED
 >
 
-<!ELEMENT response (doc|rule)*>
-<!ATTLIST response
-	name CDATA #IMPLIED
->
-
-<!ELEMENT result (doc|rule|struct)*>
-<!ATTLIST result
-        type CDATA #IMPLIED
->
-
-<!ELEMENT segments (doc|rule|header|body)*>
-
-<!ELEMENT header (doc|rule|entry)*>
-<!ATTLIST header
-        required (true|false) #IMPLIED
->
-
-<!ELEMENT entry (doc|rule)*>
-<!ATTLIST entry
-        type CDATA #REQUIRED
->
-
-<!ELEMENT body (doc|rule)*>
-<!ATTLIST body
-    required (true|false) #IMPLIED
->
-
-<!ELEMENT doc (#PCDATA|xref)*>
+<!ELEMENT doc (p|ul|ol|dl|picture)*>
 <!ATTLIST doc
-	type (grammar|scenario|picture|bnf|todo) #IMPLIED
-	title CDATA #IMPLIED
+	  title CDATA #IMPLIED
 >
 
-<!ELEMENT  xref (#PCDATA)>
+<!ELEMENT p (#PCDATA|xref|b|i|todo|sup|sub)*>
+
+<!ELEMENT xref (#PCDATA)>
 <!ATTLIST xref
-  ref CDATA #REQUIRED>
+          type CDATA #IMPLIED
+          name CDATA #REQUIRED
+>
+
+<!ELEMENT b (#PCDATA)>
+<!ELEMENT i (#PCDATA)>
+<!ELEMENT todo (#PCDATA)>
+<!ATTLIST todo
+          class (presentation|content|intent) #IMPLIED>
+<!ELEMENT sup (#PCDATA|sup|sub|b|i)*>
+<!ELEMENT sub (#PCDATA|sup|sub|b|i)*>
+
+<!ELEMENT ul (li)*>
+<!ATTLIST ul
+	  title CDATA #IMPLIED
+>
+<!ELEMENT ol (li)*>
+<!ATTLIST ol
+	  title CDATA #IMPLIED
+>
+
+<!ELEMENT li (p|ul)*>
+
+<!ELEMENT dl (dt, dd)*>
+<!ATTLIST dl
+	  title CDATA #IMPLIED
+>
+<!ELEMENT dt (#PCDATA)>
+<!ELEMENT dd (p)*>
+
+<!ELEMENT picture (#PCDATA)>
+<!ATTLIST picture
+	  title CDATA #IMPLIED
+>

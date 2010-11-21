@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<amqp
+	name="sms-v1.0"
+	xmlns="http://www.amqp.org/schema/amqp.xsd"
+>
+	<!-- include section with types & encodings from "primitive" protocol -->
+	<include
+		xmlns="http://www.w3.org/2001/XInclude"
+		href="primitive.xml"
+		xpointer="xmlns(ns=http://www.amqp.org/schema/amqp.xsd)xpointer(/ns:amqp/ns:section[@name='encodings'])"
+	/>
+
+	<section name="sms">
+		
+	</section>
+</amqp>
