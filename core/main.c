@@ -5,6 +5,7 @@
 #include "options.h"
 #include "module.h"
 #include "config.h"
+#include "log.h"
 #include "queue.h"
 #include "messaging.h"
 
@@ -153,11 +154,23 @@ int main(gint argc, gchar* argv[]) {
 	// do config preloading
 	core_config_preload();
 
+	// init logger provider
+	if (!core_log_provider_init()) {
+		g_print("Cannot initialize logging provider!\n");
+
+		core_config_provider_destroy();
+		core_destroy();
+		return 1111;
+	}
+
+	core_log("core", 0, 0, "loging system initialized");
+
 	// init queue provider
 	if (!core_queue_provider_init(&err)) {
 		g_print("Cannot initialize queue provider: %s!\n", err->message);
 	
 		g_error_free(err);
+		core_log_provider_destroy();
 		core_config_provider_destroy();
 		core_destroy();
 
@@ -170,6 +183,7 @@ int main(gint argc, gchar* argv[]) {
 
 		g_error_free(err);
 		core_queue_provider_destroy();
+		core_log_provider_destroy();
 		core_config_provider_destroy();
 		core_destroy();
 
@@ -181,6 +195,7 @@ int main(gint argc, gchar* argv[]) {
 
 		g_error_free(err);
 		core_queue_provider_destroy();
+		core_log_provider_destroy();
 		core_config_provider_destroy();
 		core_destroy();
 
@@ -192,6 +207,7 @@ int main(gint argc, gchar* argv[]) {
 
 		g_error_free(err);
 		core_queue_provider_destroy();
+		core_log_provider_destroy();
 		core_config_provider_destroy();
 		core_destroy();
 
@@ -205,12 +221,16 @@ int main(gint argc, gchar* argv[]) {
 	// start messaging framework
 	core_messaging_start();
 
+	// loops
 
 	// destroy messaging framework
 	core_messaging_destroy();
 
 	// destroy queue provider
 	core_queue_provider_destroy();
+
+	// destroy log provider
+	core_log_provider_destroy();
 
 	// destroy config
 	core_config_provider_destroy();

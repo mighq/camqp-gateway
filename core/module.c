@@ -6,8 +6,9 @@
 
 gchar* core_module_file(module_type type, const gchar* name) {
 	// prefixes for various module types (indexes correspond to "module_type" enum)
-	gchar* module_prefixes[5] = {
+	gchar* module_prefixes[6] = {
 		"config",
+		"log",
 		"queue",
 		"msg_in",
 		"msg_out",

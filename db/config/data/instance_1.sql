@@ -25,6 +25,42 @@ INSERT INTO "setting" (
 	--
 	1,
 	(SELECT "group_pk" FROM "group" WHERE "name" = 'core'),
+	(SELECT "option_pk" FROM "option" WHERE "name" = 'log_module'),
+	--
+	'file'
+);
+
+INSERT INTO "setting" (
+	"setting_pk",
+	--
+	"instance_id",
+	"group_pk",
+	"option_pk",
+	--
+	"data_text"
+) VALUES (
+	coalesce((SELECT max("setting_pk")+1 FROM "setting"), 1),
+	--
+	1,
+	(SELECT "group_pk" FROM "group" WHERE "name" = 'core'),
+	(SELECT "option_pk" FROM "option" WHERE "name" = 'log_filename'),
+	--
+	'instance_1.log'
+);
+
+INSERT INTO "setting" (
+	"setting_pk",
+	--
+	"instance_id",
+	"group_pk",
+	"option_pk",
+	--
+	"data_text"
+) VALUES (
+	coalesce((SELECT max("setting_pk")+1 FROM "setting"), 1),
+	--
+	1,
+	(SELECT "group_pk" FROM "group" WHERE "name" = 'core'),
 	(SELECT "option_pk" FROM "option" WHERE "name" = 'queue_module'),
 	--
 	'memory'

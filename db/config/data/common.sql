@@ -13,6 +13,24 @@ INSERT INTO "group" (
 
 -- === options
 
+-- core.log_module
+INSERT INTO "option" (
+	"option_pk",
+	"name"
+) VALUES (
+	coalesce((SELECT max("option_pk")+1 FROM "option"), 1),
+	"log_module"
+);
+
+-- core.log_filename
+INSERT INTO "option" (
+	"option_pk",
+	"name"
+) VALUES (
+	coalesce((SELECT max("option_pk")+1 FROM "option"), 1),
+	"log_filename"
+);
+
 -- core.queue_module
 INSERT INTO "option" (
 	"option_pk",
@@ -66,5 +84,7 @@ INSERT INTO "option" (
 	coalesce((SELECT max("option_pk")+1 FROM "option"), 1),
 	'feedback_pull_timeout'
 );
+
+-- 
 
 COMMIT;

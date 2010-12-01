@@ -9,3 +9,4 @@
 -K core_config_get_real
 -K core_config_get_text
 -K core_config_get_bin
+-K core_log

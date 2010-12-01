@@ -27,6 +27,7 @@ GLOBALIMPORT gboolean		g_sequence_started;
  */
 GLOBALIMPORT module_loaded*	g_provider_config;
 GLOBALIMPORT module_loaded*	g_provider_queue;
+GLOBALIMPORT module_loaded*	g_provider_log;
 
 /**
  * messaging modules

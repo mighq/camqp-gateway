@@ -3,6 +3,7 @@ SOURCES=global.c		\
 		options.c		\
 		module.c		\
 		config.c		\
+		log.c			\
 		queue.c			\
 		messaging.c		\
 		thread.c		\
@@ -40,7 +41,7 @@ LFLAGS=-Wl,--export-dynamic
 DIR_TMP=tmp
 DIR_DEBUG=debug
 
-TEST_OPTIONS=-c sqlite 2
+TEST_OPTIONS=-c sqlite 1
 
 # computed parts
 OBJS=$(patsubst %.c,${DIR_TMP}/%.o,${SOURCES})
