@@ -64,7 +64,7 @@ gboolean file_log(gchar* domain, guchar level, guint code, gchar* message) {
 
 	fprintf(
 		g_log_fp,
-		"%s; fc=%s, lv=%d, id=%d: %s\n",
+		"%s; fc=%s, lv=%d, id=%d; %s\n",
 			now,
 			domain,
 			level,

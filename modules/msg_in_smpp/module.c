@@ -62,15 +62,28 @@ void msg_in_smpp_invoker_push_forward() {
 
 	// wait for connection
 	if (g_state == 0) {
-		// wait for new connection on socket
-		struct sockaddr	address;
-		socklen_t		addr_len = sizeof(address);
-		g_socket_client = accept(g_socket_server, &address, &addr_len);
+		// init waiting structures
+		fd_set	waiting_sockets;
+		FD_ZERO(&waiting_sockets);
+		FD_SET(g_socket_server, &waiting_sockets);
 
-		// do nothing if core have terminated already
-		if (core_terminated())
+		// try every 1/4 second to check for connection
+		struct timeval tv;
+		tv.tv_sec = 0;
+		tv.tv_usec = 250000;
+
+		// check for connection on socket
+		int ready = select(g_socket_server + 1, &waiting_sockets, NULL, NULL, &tv);
+
+		// do nothing if no connection received (will be repeated)
+		if (!FD_ISSET(g_socket_server, &waiting_sockets))
 			return;
 
+		// accept connection on socket
+		struct sockaddr	address;
+		socklen_t		addr_len = sizeof(address);
+
+		g_socket_client = accept(g_socket_server, &address, &addr_len);
 		g_print("new connection\n");
 
 		// connected
@@ -185,6 +198,7 @@ void msg_in_smpp_invoker_push_forward() {
 
 
 		// ===
+
 			// create message
 			message* msg = message_new();
 

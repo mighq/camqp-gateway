@@ -86,11 +86,11 @@ test-env:
 
 test: ${TARGET} test-env
 	@echo "---===---"
-	@LD_LIBRARY_PATH="${DIR_DIST_LIB}:${LD_LIBRARY_PATH}" ${TARGET} ${TEST_OPTIONS}
+	@cd "${DIR_DIST}" && LD_LIBRARY_PATH="${DIR_DIST_LIB}:${LD_LIBRARY_PATH}" ${TARGET} ${TEST_OPTIONS}
 
 check: ${TARGET} test-env
 	@echo "---=TEST=---"
-	@LANG=C.UTF-8 G_SLICE=always-malloc G_DEBUG=gc-friendly valgrind --tool=memcheck --leak-check=full --show-reachable=yes --leak-resolution=high --num-callers=20 ${TARGET} ${TEST_OPTIONS}
+	@cd "${DIR_DIST}" && LANG=en_US.UTF-8 G_SLICE=always-malloc G_DEBUG=gc-friendly valgrind --tool=memcheck --leak-check=full --show-reachable=yes --leak-resolution=high --num-callers=20 ${TARGET} ${TEST_OPTIONS}
 
 #check-supp: ${TARGET} test-env
 #	@echo "---===---"
