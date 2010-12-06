@@ -6,8 +6,9 @@ SOURCES=libcamqp.c
 INCLUDES=	\
 	-I.
 
-LIBS=	\
-	-lxml2
+LIBS=
+#\
+#	-lxml2
 
 # environment
 CC=gcc
