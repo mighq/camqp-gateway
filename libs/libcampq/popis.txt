@@ -1,0 +1,15 @@
+funkcie:
+	na zaklade zvoleneho protokolu nacita xml definiciu a skontroluje, ze to sedi
+	ziskam kontext
+
+	parsing
+		priamo dotaz na element pomocou path
+			/request/id
+		ziskanie subelementu nejakeho prvku
+
+	tvorba
+		vyplnenie elementu daneho typu -> vytvorenie reprezentacie
+		x = vytvor_struct(nazov);
+		x.add_field_string(nazov, hodnota);
+		vytvorit vsetky typy a jeden pre strukturovany s fieldami
+		
