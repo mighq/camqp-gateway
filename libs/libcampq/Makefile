@@ -3,18 +3,19 @@ TEST_BIN=test
 SOURCES=libcamqp.c
 
 # dependencies
-INCLUDES=	\
-	-I.
+INCLUDES=\
+	-I.						\
+	-I/usr/include/libxml2
 
-LIBS=
-#\
-#	-lxml2
+LIBS=\
+	-L/usr/lib	\
+	-lxml2
 
 # environment
 CC=gcc
 LD=ld
 STRIP=strip
-CFLAGS=-Wall -O0 -ggdb -fPIC
+CFLAGS=-std=c99 -Wall -O0 -ggdb -fPIC
 LFLAGS=
 
 DIR_OBJ=obj
@@ -31,7 +32,7 @@ ${TARGET}: ${OBJS} | ${DIR_DONE}
 	${LD} ${LFLAGS} -shared -soname ${TARGET_LIB} -o ${TARGET} ${OBJS} ${LIBS}
 
 ${TEST}: ${TARGET} | ${DIR_DONE}
-	${CC} ${CFLAGS} -I. -L${DIR_DONE} -lcamqp -o $@ test.c
+	${CC} ${CFLAGS} -I. -I/usr/include/libxml2 -L${DIR_DONE} -lcamqp -L/usr/lib -lxml2 -o $@ test.c
 
 ${DIR_OBJ}/%.o: %.c | ${DIR_OBJ}
 	${CC} ${CFLAGS} ${INCLUDES} -o $@ -c $<
@@ -47,9 +48,11 @@ ${DIR_OBJ}:
 test: ${TEST}
 	@cd ${DIR_DONE} && LD_LIBRARY_PATH=".:${LD_LIBRARY_PATH}" ./${TEST_BIN}
 
+check: ${TEST}
+	@cd ${DIR_DONE} && LD_LIBRARY_PATH=".:${LD_LIBRARY_PATH}" valgrind --tool=memcheck  --leak-check=full --show-reachable=yes --leak-resolution=high --suppressions=../suppress.txt ./${TEST_BIN}
+
 # CLEANUP
 clean:
 	rm -rf ${TARGET}
 	rm -rf ${TEST}
-	rm -rf ${DIR_DONE}
 	rm -rf ${DIR_OBJ}

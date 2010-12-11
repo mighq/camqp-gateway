@@ -13,3 +13,12 @@ funkcie:
 		x.add_field_string(nazov, hodnota);
 		vytvorit vsetky typy a jeden pre strukturovany s fieldami
 		
+
+BUDUCNOST podpora namespacov -> viac kontextov / protokolov
+
+query syntax
+/			- element
+/abc		- field kompozitneho elementu
+/[1]		- druha polozka (indexovanie od 0) primitivneho list elementu
+/[a]		- pomenovana polozka "a" primitivneho map elementu
+/item/sub	- field "sub" kompozitneho fieldu "item" elementu

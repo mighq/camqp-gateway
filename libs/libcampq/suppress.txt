@@ -1,0 +1,10 @@
+{
+   divne chyby
+   Memcheck:Cond
+   obj:/lib/ld-2.11.2.so
+   obj:/lib/ld-2.11.2.so
+   obj:/lib/ld-2.11.2.so
+   obj:/lib/ld-2.11.2.so
+   obj:/lib/ld-2.11.2.so
+}
+
