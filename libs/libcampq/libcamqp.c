@@ -162,7 +162,7 @@ camqp_context* camqp_context_new(camqp_string* protocol, camqp_string* definitio
 
 	// check for correct protocol definition
 	xmlNodePtr root = xmlDocGetRootElement(ctx->xml);
-	xmlChar* protocol_def = xmlGetProp(root, "name");
+	xmlChar* protocol_def = xmlGetProp(root, (xmlChar*) "name");
 	xmlChar* protocol_req = xmlUTF8Strndup(protocol->chars, protocol->length);
 
 	if (!xmlStrEqual(protocol_def, protocol_req)) {
@@ -191,5 +191,26 @@ void camqp_context_free(camqp_context* context) {
 	camqp_util_free(context);
 }
 // ---
+
+/// camqp_element
+/*
+camqp_element* camqp_element_new(camqp_context* ctx, camqp_class cls, camqp_multiplicity multi) {
+	camqp_element* ret = camqp_util_new(sizeof(camqp_element));
+	if (!ret)
+		return NULL;
+
+	ret->context = ctx;
+	ret->class = cls;
+	ret->multiple = multi;
+
+	return ret;
+}
+
+void camqp_element_free(camqp_element* element) {
+	camqp_util_free(element);
+}
+*/
+// ---
+
 
 

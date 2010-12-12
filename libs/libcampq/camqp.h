@@ -12,27 +12,30 @@
 
 /// enumerations
 typedef enum {
-	CAMQP_TYPE_NULL = 0,
-
-	CAMQP_TYPE_BOOLEAN,
+	CAMQP_TYPE_BOOLEAN = 1,
+	//
 	CAMQP_TYPE_UBYTE,
 	CAMQP_TYPE_USHORT,
 	CAMQP_TYPE_UINT,
 	CAMQP_TYPE_ULONG,
+	//
 	CAMQP_TYPE_BYTE,
 	CAMQP_TYPE_SHORT,
 	CAMQP_TYPE_INT,
 	CAMQP_TYPE_LONG,
+	//
 	CAMQP_TYPE_FLOAT, // 4B
-	CAMQP_TYPE_DOUBLE, // 8B
 	CAMQP_TYPE_DECIMAL32, //?
+	CAMQP_TYPE_DOUBLE, // 8B
 	CAMQP_TYPE_DECIMAL64, //?
-	CAMQP_TYPE_CHAR,
 	CAMQP_TYPE_TIMESTAMP,
-	CAMQP_TYPE_UUID,
-	CAMQP_TYPE_BINARY,
+	//
+	CAMQP_TYPE_CHAR,
 	CAMQP_TYPE_STRING, // UTF-8 string
-	CAMQP_TYPE_SYMBOL // ASCII string
+	CAMQP_TYPE_SYMBOL, // ASCII string
+	CAMQP_TYPE_UUID,
+	//
+	CAMQP_TYPE_BINARY
 } camqp_type;
 
 typedef enum {
@@ -112,7 +115,8 @@ typedef struct {
 	camqp_multiplicity	multiple;
 } camqp_element;
 
-camqp_element*	camqp_element_create_composite(camqp_context* context, camqp_string* type_name);
+camqp_element* camqp_element_new(camqp_context* ctx, camqp_class cls, camqp_multiplicity multi);
+void camqp_element_free(camqp_element* element);
 // ---
 
 /// camqp_vector
@@ -121,8 +125,9 @@ camqp_element*	camqp_element_create_composite(camqp_context* context, camqp_stri
  *	vector item
  */
 typedef struct {
-	camqp_string*	key;
-	camqp_element*	data;
+	camqp_string*						key;
+	camqp_element*						data;
+	struct camqp_element_vector_item*	next;
 } camqp_element_vector_item;
 
 /**
@@ -130,33 +135,53 @@ typedef struct {
  * lists and maps
  */
 typedef struct {
-	camqp_element*				base;
+	camqp_element				base;
 
-	camqp_size					count;
 	camqp_element_vector_item*	data;
 } camqp_element_vector;
+
+camqp_element_vector*	camqp_vector_new(camqp_context* ctx);
+void					camqp_vector_free(camqp_element_vector* vector);
+
+void			camqp_vector_item_put(camqp_element_vector* vector, camqp_string* key, camqp_element* element);
+camqp_element*	camqp_vector_item_get(camqp_element_vector vector, camqp_string* key);
+
 // ---
 
 /// camqp_element_primitive
 typedef struct {
 	// element base
-	camqp_element*		base;
+	camqp_element		base;
 
 	// primitive type indicator
 	camqp_type			type;
 
 	// data storage for primitives
-	struct {
+	union {
 		int8_t			i8;
 		uint8_t			ui8;
 		float			f;
 		double			d;
 		camqp_string*	str;
-		camqp_data		bin;
+		camqp_data*		bin;
 	} data;
 } camqp_element_primitive;
 
-camqp_element*	camqp_element_create_primitive_bool(camqp_context* context, bool value);
+camqp_element_primitive*	camqp_primitive_bool(camqp_context* context,					bool value);			// BOOL
+camqp_element_primitive*	camqp_primitive_int(camqp_context* context, camqp_type type,	int64_t value);			// BYTE, SHORT, INT, LONG, TIMESTAMP
+camqp_element_primitive*	camqp_primitive_uint(camqp_context* context, camqp_type type,	uint64_t value);		// UBYTE, USHORT, UINT, ULONG
+camqp_element_primitive*	camqp_primitive_float(camqp_context* context, camqp_type type,	float value);			// DECIMAL32, FLOAT
+camqp_element_primitive*	camqp_primitive_double(camqp_context* context, camqp_type type,	double value);			// DECIMAL64, DOUBLE
+camqp_element_primitive*	camqp_primitive_string(camqp_context* context, camqp_type type,	camqp_string* value);	// STRING, SYMBOL, CHAR, UUID
+camqp_element_primitive*	camqp_primitive_binary(camqp_context* context,					camqp_data* value);		// BINARY
+
+bool			camqp_value_bool(camqp_element_primitive* element);		// BOOL
+int64_t			camqp_value_int(camqp_element_primitive* element);		// BYTE, SHORT, INT, LONG, TIMESTAMP
+uint64_t		camqp_value_uint(camqp_element_primitive* element);		// UBYTE, USHORT, UINT, ULONG
+float			camqp_value_float(camqp_element_primitive* element);	// DECIMAL32, FLOAT
+double			camqp_value_double(camqp_element_primitive* element);	// DECIMAL64, DOUBLE
+camqp_string*	camqp_value_string(camqp_element_primitive* element);	// STRING, SYMBOL, CHAR, UUID
+camqp_data*		camqp_value_binary(camqp_element_primitive* element);	// BINARY
 // ---
 
 /// camqp_element_composite
@@ -164,20 +189,25 @@ camqp_element*	camqp_element_create_primitive_bool(camqp_context* context, bool 
  *
  */
 typedef struct {
-	// composites
-	camqp_string*			name;
+	camqp_element				base;
 
-	// data storage structure
-	camqp_element_vector*	fields;
+	camqp_string*				name;
+	uint32_t					code;
+
+	camqp_element_vector_item*	fields;
 } camqp_element_composite;
 
-camqp_element*	camqp_element_create_composite(camqp_context* context, camqp_string* type_name);
+camqp_element_composite*	camqp_composite_new(camqp_context* context, camqp_string* type_name);
+void						camqp_composite_free(camqp_element_composite* element);
+
+void						camqp_composite_field_put(camqp_element_composite* element, camqp_string* key, camqp_element* item);
+camqp_element*				camqp_composite_field_get(camqp_element_composite* element, camqp_string* key);
 // ---
 
 // ---
 
 /// encoding, decoding & querying
-camqp_data*		camqp_element_encode(camqp_element* element);
+camqp_data*		camqp_element_encode(camqp_context* context, camqp_element* element);
 camqp_element*	camqp_element_decode(camqp_context* context, camqp_data* binary);
 camqp_element*	camqp_query(camqp_context* context, camqp_data* binary);
 // ---

@@ -14,7 +14,7 @@
 
 	<section name="general">
 		<type name="sms" class="composite" source="list">
-			<descriptor code="0x0001"/>
+			<descriptor code="0x00000001"/>
 
 			<field name="sender" type="string" mandatory="true"/>
 			<field name="recipient" type="string" mandatory="true"/>
