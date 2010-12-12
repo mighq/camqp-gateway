@@ -212,5 +212,3 @@ void camqp_element_free(camqp_element* element) {
 */
 // ---
 
-
-

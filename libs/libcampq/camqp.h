@@ -115,40 +115,11 @@ typedef struct {
 	camqp_multiplicity	multiple;
 } camqp_element;
 
-camqp_element* camqp_element_new(camqp_context* ctx, camqp_class cls, camqp_multiplicity multi);
-void camqp_element_free(camqp_element* element);
+//camqp_element* camqp_element_new(camqp_context* ctx, camqp_class cls, camqp_multiplicity multi);
+//void camqp_element_free(camqp_element* element);
 // ---
 
-/// camqp_vector
-
-/**
- *	vector item
- */
-typedef struct {
-	camqp_string*						key;
-	camqp_element*						data;
-	struct camqp_element_vector_item*	next;
-} camqp_element_vector_item;
-
-/**
- * structure for holding
- * lists and maps
- */
-typedef struct {
-	camqp_element				base;
-
-	camqp_element_vector_item*	data;
-} camqp_element_vector;
-
-camqp_element_vector*	camqp_vector_new(camqp_context* ctx);
-void					camqp_vector_free(camqp_element_vector* vector);
-
-void			camqp_vector_item_put(camqp_element_vector* vector, camqp_string* key, camqp_element* element);
-camqp_element*	camqp_vector_item_get(camqp_element_vector vector, camqp_string* key);
-
-// ---
-
-/// camqp_element_primitive
+/// camqp_primitive
 typedef struct {
 	// element base
 	camqp_element		base;
@@ -165,43 +136,72 @@ typedef struct {
 		camqp_string*	str;
 		camqp_data*		bin;
 	} data;
-} camqp_element_primitive;
+} camqp_primitive;
 
-camqp_element_primitive*	camqp_primitive_bool(camqp_context* context,					bool value);			// BOOL
-camqp_element_primitive*	camqp_primitive_int(camqp_context* context, camqp_type type,	int64_t value);			// BYTE, SHORT, INT, LONG, TIMESTAMP
-camqp_element_primitive*	camqp_primitive_uint(camqp_context* context, camqp_type type,	uint64_t value);		// UBYTE, USHORT, UINT, ULONG
-camqp_element_primitive*	camqp_primitive_float(camqp_context* context, camqp_type type,	float value);			// DECIMAL32, FLOAT
-camqp_element_primitive*	camqp_primitive_double(camqp_context* context, camqp_type type,	double value);			// DECIMAL64, DOUBLE
-camqp_element_primitive*	camqp_primitive_string(camqp_context* context, camqp_type type,	camqp_string* value);	// STRING, SYMBOL, CHAR, UUID
-camqp_element_primitive*	camqp_primitive_binary(camqp_context* context,					camqp_data* value);		// BINARY
+camqp_primitive*	camqp_primitive_bool(camqp_context* context,					bool value);			// BOOL
+camqp_primitive*	camqp_primitive_int(camqp_context* context, camqp_type type,	int64_t value);			// BYTE, SHORT, INT, LONG, TIMESTAMP
+camqp_primitive*	camqp_primitive_uint(camqp_context* context, camqp_type type,	uint64_t value);		// UBYTE, USHORT, UINT, ULONG
+camqp_primitive*	camqp_primitive_float(camqp_context* context, camqp_type type,	float value);			// DECIMAL32, FLOAT
+camqp_primitive*	camqp_primitive_double(camqp_context* context, camqp_type type,	double value);			// DECIMAL64, DOUBLE
+camqp_primitive*	camqp_primitive_string(camqp_context* context, camqp_type type,	camqp_string* value);	// STRING, SYMBOL, CHAR, UUID
+camqp_primitive*	camqp_primitive_binary(camqp_context* context,					camqp_data* value);		// BINARY
 
-bool			camqp_value_bool(camqp_element_primitive* element);		// BOOL
-int64_t			camqp_value_int(camqp_element_primitive* element);		// BYTE, SHORT, INT, LONG, TIMESTAMP
-uint64_t		camqp_value_uint(camqp_element_primitive* element);		// UBYTE, USHORT, UINT, ULONG
-float			camqp_value_float(camqp_element_primitive* element);	// DECIMAL32, FLOAT
-double			camqp_value_double(camqp_element_primitive* element);	// DECIMAL64, DOUBLE
-camqp_string*	camqp_value_string(camqp_element_primitive* element);	// STRING, SYMBOL, CHAR, UUID
-camqp_data*		camqp_value_binary(camqp_element_primitive* element);	// BINARY
+bool			camqp_value_bool(camqp_primitive* element);		// BOOL
+int64_t			camqp_value_int(camqp_primitive* element);		// BYTE, SHORT, INT, LONG, TIMESTAMP
+uint64_t		camqp_value_uint(camqp_primitive* element);		// UBYTE, USHORT, UINT, ULONG
+float			camqp_value_float(camqp_primitive* element);	// DECIMAL32, FLOAT
+double			camqp_value_double(camqp_primitive* element);	// DECIMAL64, DOUBLE
+camqp_string*	camqp_value_string(camqp_primitive* element);	// STRING, SYMBOL, CHAR, UUID
+camqp_data*		camqp_value_binary(camqp_primitive* element);	// BINARY
 // ---
 
-/// camqp_element_composite
+/// camqp_vector
+
+/**
+ *	vector item
+ */
+typedef struct {
+	camqp_string*				key;
+	camqp_element*				data;
+	struct camqp_vector_item*	next;
+} camqp_vector_item;
+
+/**
+ * structure for holding
+ * lists and maps
+ */
+typedef struct {
+	camqp_element		base;
+
+	camqp_vector_item*	data;
+} camqp_vector;
+
+camqp_vector*	camqp_vector_new(camqp_context* ctx);
+void			camqp_vector_free(camqp_vector* vector);
+
+void			camqp_vector_item_put(camqp_vector* vector, camqp_string* key, camqp_element* element);
+camqp_element*	camqp_vector_item_get(camqp_vector vector, camqp_string* key);
+
+// ---
+
+/// camqp_composite
 /**
  *
  */
 typedef struct {
-	camqp_element				base;
+	camqp_element		base;
 
-	camqp_string*				name;
-	uint32_t					code;
+	camqp_string*		name;
+	uint32_t			code;
 
-	camqp_element_vector_item*	fields;
-} camqp_element_composite;
+	camqp_vector_item*	fields;
+} camqp_composite;
 
-camqp_element_composite*	camqp_composite_new(camqp_context* context, camqp_string* type_name);
-void						camqp_composite_free(camqp_element_composite* element);
+camqp_composite*	camqp_composite_new(camqp_context* context, camqp_string* type_name);
+void				camqp_composite_free(camqp_composite* element);
 
-void						camqp_composite_field_put(camqp_element_composite* element, camqp_string* key, camqp_element* item);
-camqp_element*				camqp_composite_field_get(camqp_element_composite* element, camqp_string* key);
+void				camqp_composite_field_put(camqp_composite* element, camqp_string* key, camqp_element* item);
+camqp_element*		camqp_composite_field_get(camqp_composite* element, camqp_string* key);
 // ---
 
 // ---
