@@ -171,9 +171,12 @@ camqp_data*		camqp_value_binary(camqp_primitive* element);	// BINARY
  */
 typedef struct {
 	camqp_string*				key;
-	camqp_element*				data;
+	camqp_element*				value;
 	struct camqp_vector_item*	next;
 } camqp_vector_item;
+
+camqp_vector_item* camqp_vector_item_new(camqp_string* key, camqp_element* value);
+void camqp_vector_item_free(camqp_vector_item* item);
 
 /**
  * structure for holding

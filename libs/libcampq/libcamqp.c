@@ -7,6 +7,7 @@
 #include <libxml/xinclude.h>
 
 // TODO, nejak poriesit exception navratove hodnoty
+// todo kontrolovanie utf8 stringov
 
 /// utils
 
@@ -528,6 +529,68 @@ camqp_data* camqp_value_binary(camqp_primitive* element) {
 	return element->data.bin;
 }
 // ---
+
+// ---
+
+/// camqp_vector
+camqp_vector_item* camqp_vector_item_new(camqp_string* key, camqp_element* value) {
+	camqp_vector_item* itm = camqp_util_new(sizeof(camqp_vector_item));
+	if (!itm)
+		return NULL;
+
+	itm->key = camqp_string_duplicate(key);
+	itm->value = value;
+	itm->next = NULL;
+
+	return itm;
+}
+
+void camqp_vector_item_free(camqp_vector_item* item) {
+	camqp_string_free(item->key);
+	camqp_util_free(item);
+}
+
+camqp_vector* camqp_vector_new(camqp_context* ctx) {
+	camqp_vector* vec = camqp_util_new(sizeof(camqp_vector));
+	if (!vec)
+		return NULL;
+
+	vec->base.context = ctx;
+
+	vec->base.class = CAMQP_CLASS_PRIMITIVE;
+	vec->base.multiple = CAMQP_MULTIPLICITY_VECTOR;
+
+	vec->data = NULL;
+
+	return vec;
+}
+
+void camqp_vector_free(camqp_vector* vector) {
+	// delete all elements from vector
+	camqp_vector_item* to_del = vector->data;
+	while (to_del) {
+		camqp_vector_item* to_del_next = to_del->next;
+		camqp_vector_item_free(to_del);
+		to_del = to_del_next;
+	}
+
+	// delete vector itself
+	camqp_util_free(vector);
+}
+
+void camqp_vector_item_put(camqp_vector* vector, camqp_string* key, camqp_element* element) {
+	// check if contexts are matching
+	if (vector->base.context != element->context)
+		return;
+
+	// create new item
+	camqp_vector_item* el = camqp_vector_item_new(key, element);
+	if (!el)
+		return;
+
+	// find position in vector
+	vector->data = el;
+}
 
 // ---
 

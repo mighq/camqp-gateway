@@ -95,6 +95,17 @@ int main(int argc, char* argv[]) {
 	camqp_data_free(dt2);
 	// ---
 
+	/// camqp_vector
+	camqp_string str4 = camqp_string_static_nt((camqp_char*) "key1");
+	camqp_primitive* pt8 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 418);
+
+	camqp_vector* vec1 = camqp_vector_new(ctx1);
+	camqp_vector_item_put(vec1, &str4, (camqp_element*) pt8);
+	camqp_vector_free(vec1);
+
+	camqp_primitive_free(pt8);
+	// ---
+
 	camqp_context_free(ctx1);
 
 	return EXIT_SUCCESS;
