@@ -50,9 +50,10 @@ typedef enum {
 // ---
 
 /// type aliases
-typedef unsigned char	camqp_byte;
-typedef uint32_t		camqp_size;
-typedef char			camqp_char;
+typedef uint8_t		camqp_byte;
+typedef uint32_t	camqp_size;
+typedef uint8_t		camqp_char;
+typedef uint32_t	camqp_code;
 // ---
 
 /// types
@@ -163,7 +164,7 @@ struct camqp_vector_item_t {
 typedef struct camqp_vector_item_t camqp_vector_item;
 
 camqp_vector_item* camqp_vector_item_new(const camqp_char* key, camqp_element* value);
-void camqp_vector_item_free(camqp_vector_item* item);
+void camqp_vector_item_free(camqp_vector_item* item, bool free_value);
 
 /**
  * structure for holding
@@ -176,10 +177,10 @@ typedef struct {
 } camqp_vector;
 
 camqp_vector*	camqp_vector_new(camqp_context* ctx);
-void			camqp_vector_free(camqp_vector* vector);
+void			camqp_vector_free(camqp_vector* vector, bool free_values);
 
 void			camqp_vector_item_put(camqp_vector* vector, const camqp_char* key, camqp_element* element);
-camqp_element*	camqp_vector_item_get(camqp_vector vector, const camqp_char* key);
+camqp_element*	camqp_vector_item_get(camqp_vector* vector, const camqp_char* key);
 
 // ---
 
@@ -191,12 +192,12 @@ typedef struct {
 	camqp_element		base;
 
 	camqp_char*			name;
-	uint32_t			code;
+	camqp_code			code;
 
 	camqp_vector_item*	fields;
 } camqp_composite;
 
-camqp_composite*	camqp_composite_new(camqp_context* context, const camqp_char* type_name);
+camqp_composite*	camqp_composite_new(camqp_context* context, const camqp_char* type_name, camqp_code type_code);
 void				camqp_composite_free(camqp_composite* element);
 
 void				camqp_composite_field_put(camqp_composite* element, const camqp_char* key, camqp_element* item);
@@ -206,7 +207,7 @@ camqp_element*		camqp_composite_field_get(camqp_composite* element, const camqp_
 // ---
 
 /// encoding, decoding & querying
-camqp_data*		camqp_element_encode(camqp_context* context, camqp_element* element);
+camqp_data*		camqp_element_encode(camqp_element* element);
 camqp_element*	camqp_element_decode(camqp_context* context, camqp_data* binary);
 camqp_element*	camqp_query(camqp_context* context, const camqp_char* query, camqp_data* binary);
 // ---

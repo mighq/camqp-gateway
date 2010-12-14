@@ -15,8 +15,8 @@ int main(int argc, char* argv[]) {
 	// ---
 
 	/// camqp_context
-	camqp_char* file = "messaging-v1.0.xml";
-	camqp_char* proto = "messaging-v1.0";
+	camqp_char* file = (camqp_char*) "messaging-v1.0.xml";
+	camqp_char* proto = (camqp_char*) "messaging-v1.0";
 
 	// create context
 	camqp_context* ctx1 = camqp_context_new(proto, file);
@@ -59,13 +59,13 @@ int main(int argc, char* argv[]) {
 	camqp_primitive_free(pt5);
 
 	// string
-	camqp_primitive* pt6 = camqp_primitive_string(ctx1, CAMQP_TYPE_STRING, "pela hopa");
+	camqp_primitive* pt6 = camqp_primitive_string(ctx1, CAMQP_TYPE_STRING, (camqp_char*) "pela hopa");
 	const camqp_char* vl6 = camqp_value_string(pt6);
 	printf("%s\n", vl6);
 	camqp_primitive_free(pt6);
 
 	// binary
-	camqp_data* dt2 = camqp_data_new((camqp_byte*)"XYZ", 3);
+	camqp_data* dt2 = camqp_data_new((camqp_byte*) "XYZ", 3);
 	if (!dt2)
 		err("T004");
 
@@ -79,12 +79,40 @@ int main(int argc, char* argv[]) {
 
 	/// camqp_vector
 	camqp_primitive* pt8 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 418);
+	camqp_primitive* pt9 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 325);
+	camqp_primitive* pt10 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 65);
+	camqp_primitive* pt11 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 123);
+	camqp_primitive* pt12 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 456);
 
 	camqp_vector* vec1 = camqp_vector_new(ctx1);
-	camqp_vector_item_put(vec1, "key1", (camqp_element*) pt8);
-	camqp_vector_free(vec1);
+	camqp_vector_item_put(vec1, (camqp_char*) "key1", (camqp_element*) pt8);
+	camqp_vector_item_put(vec1, (camqp_char*) "key0", (camqp_element*) pt9);
+	camqp_vector_item_put(vec1, (camqp_char*) "key5", (camqp_element*) pt10);
+	camqp_vector_item_put(vec1, (camqp_char*) "key3", (camqp_element*) pt11);
+	camqp_vector_item_put(vec1, (camqp_char*) "key3", (camqp_element*) pt12);
+	camqp_primitive_free(pt12);
 
-	camqp_primitive_free(pt8);
+	{
+		camqp_vector_item* to_del = vec1->data;
+		while (to_del) {
+			uint64_t x = camqp_value_uint((camqp_primitive*) to_del->value);
+			printf("%s:%d\n", to_del->key, (int) x);
+			to_del = to_del->next;
+		}
+	}
+
+	{
+		camqp_element* el1 = camqp_vector_item_get(vec1, (camqp_char*) "key3");
+		uint64_t y = camqp_value_uint((camqp_primitive*) el1);
+		printf("item3: 123=%d?\n", (int)y);
+	}
+
+	camqp_vector_free(vec1, true);
+	// ---
+
+	/// camqp_composite
+	camqp_composite* comp1 = camqp_composite_new(ctx1, (camqp_char*) "response", 0);
+	camqp_composite_free(comp1);
 	// ---
 
 	camqp_context_free(ctx1);
