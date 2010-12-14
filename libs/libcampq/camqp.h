@@ -76,6 +76,9 @@ typedef struct {
 camqp_string*	camqp_string_new(const camqp_char* string, camqp_size length);
 camqp_string*	camqp_string_duplicate(const camqp_string* original);
 void			camqp_string_free(camqp_string* string);
+
+camqp_string	camqp_string_static(const camqp_char* string, camqp_size length);
+#define camqp_string_static_nt(string) camqp_string_static(string, strlen((char*)string))
 // ---
 
 /// camqp_context
@@ -115,8 +118,10 @@ typedef struct {
 	camqp_multiplicity	multiple;
 } camqp_element;
 
-//camqp_element* camqp_element_new(camqp_context* ctx, camqp_class cls, camqp_multiplicity multi);
-//void camqp_element_free(camqp_element* element);
+void camqp_element_free(camqp_element* element);
+
+bool camqp_element_is_primitive(camqp_element* element); //X
+bool camqp_element_is_scalar(camqp_element* element); //X
 // ---
 
 /// camqp_primitive
@@ -129,14 +134,18 @@ typedef struct {
 
 	// data storage for primitives
 	union {
-		int8_t			i8;
-		uint8_t			ui8;
+		bool			b;
+		int64_t			i;
+		uint64_t		ui;
 		float			f;
 		double			d;
 		camqp_string*	str;
 		camqp_data*		bin;
 	} data;
 } camqp_primitive;
+
+camqp_primitive* camqp_primitive_new(camqp_context* context); //X
+void camqp_primitive_free(camqp_primitive* element); //X
 
 camqp_primitive*	camqp_primitive_bool(camqp_context* context,					bool value);			// BOOL
 camqp_primitive*	camqp_primitive_int(camqp_context* context, camqp_type type,	int64_t value);			// BYTE, SHORT, INT, LONG, TIMESTAMP
@@ -209,7 +218,7 @@ camqp_element*		camqp_composite_field_get(camqp_composite* element, camqp_string
 /// encoding, decoding & querying
 camqp_data*		camqp_element_encode(camqp_context* context, camqp_element* element);
 camqp_element*	camqp_element_decode(camqp_context* context, camqp_data* binary);
-camqp_element*	camqp_query(camqp_context* context, camqp_data* binary);
+camqp_element*	camqp_query(camqp_context* context, camqp_string* query, camqp_data* binary);
 // ---
 
 #endif

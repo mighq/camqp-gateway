@@ -6,6 +6,8 @@
 #include <libxml/parser.h>
 #include <libxml/xinclude.h>
 
+// TODO, nejak poriesit exception navratove hodnoty
+
 /// utils
 
 /**
@@ -116,6 +118,15 @@ char* camqp_string_cstr(const camqp_string* original) {
 
 	return ret;
 }
+
+camqp_string camqp_string_static(const camqp_char* string, camqp_size length) {
+	camqp_string ret;
+
+	ret.chars = (camqp_char*) string;
+	ret.length = length;
+
+	return ret;
+}
 // ---
 
 /// camqp_context
@@ -193,22 +204,330 @@ void camqp_context_free(camqp_context* context) {
 // ---
 
 /// camqp_element
-/*
-camqp_element* camqp_element_new(camqp_context* ctx, camqp_class cls, camqp_multiplicity multi) {
-	camqp_element* ret = camqp_util_new(sizeof(camqp_element));
+
+// TODO
+void camqp_element_free(camqp_element* element) {
+	if (element->class == CAMQP_CLASS_PRIMITIVE)
+		return camqp_primitive_free((camqp_primitive*) element);
+}
+// ---
+
+/// camqp_primitive
+camqp_primitive* camqp_primitive_new(camqp_context* context) {
+	camqp_primitive* ret = camqp_util_new(sizeof(camqp_primitive));
 	if (!ret)
 		return NULL;
 
-	ret->context = ctx;
-	ret->class = cls;
-	ret->multiple = multi;
+	ret->base.context = context;
+	ret->base.class = CAMQP_CLASS_PRIMITIVE;
+	ret->base.multiple = CAMQP_MULTIPLICITY_SCALAR;
 
 	return ret;
-}
+};
 
-void camqp_element_free(camqp_element* element) {
+void camqp_primitive_free(camqp_primitive* element) {
+	// for dynamic elements free data memory
+	if (
+		element->type == CAMQP_TYPE_STRING
+			||
+		element->type == CAMQP_TYPE_CHAR
+			||
+		element->type == CAMQP_TYPE_UUID
+			||
+		element->type == CAMQP_TYPE_SYMBOL
+	)
+		camqp_string_free(element->data.str);
+
+	if (element->type == CAMQP_TYPE_BINARY)
+		camqp_data_free(element->data.bin);
+
+	// free element
 	camqp_util_free(element);
 }
-*/
+
+bool camqp_element_is_primitive(camqp_element* element) {
+	return element->class == CAMQP_CLASS_PRIMITIVE;
+}
+
+bool camqp_element_is_scalar(camqp_element* element) {
+	return element->multiple == CAMQP_MULTIPLICITY_SCALAR;
+}
+
+/// bool
+camqp_primitive* camqp_primitive_bool(camqp_context* context, bool value) {
+	camqp_primitive* tp = camqp_primitive_new(context);
+	if (!tp)
+		return NULL;
+
+	tp->type = CAMQP_TYPE_BOOLEAN;
+	tp->data.b = value;
+
+	return tp;
+}
+
+bool camqp_value_bool(camqp_primitive* element) {
+	if (!camqp_element_is_primitive((camqp_element*) element))
+		return false;
+
+	if (!camqp_element_is_scalar((camqp_element*) element))
+		return false;
+
+	if (element->type != CAMQP_TYPE_BOOLEAN)
+		return false;
+
+	return element->data.b;
+}
+// ---
+
+/// int
+
+// BYTE, SHORT, INT, LONG, TIMESTAMP
+camqp_primitive* camqp_primitive_int(camqp_context* context, camqp_type type, int64_t value) {
+	if (
+		type != CAMQP_TYPE_BYTE
+			&&
+		type != CAMQP_TYPE_SHORT
+			&&
+		type != CAMQP_TYPE_INT
+			&&
+		type != CAMQP_TYPE_LONG
+			&&
+		type != CAMQP_TYPE_TIMESTAMP
+	)
+		return NULL;
+
+	camqp_primitive* tp = camqp_primitive_new(context);
+	if (!tp)
+		return NULL;
+
+	tp->type = type;
+	tp->data.i = value;
+
+	return tp;
+}
+
+int64_t camqp_value_int(camqp_primitive* element) {
+	if (!camqp_element_is_primitive((camqp_element*) element))
+		return 0;
+
+	if (!camqp_element_is_scalar((camqp_element*) element))
+		return 0;
+
+	if (
+		element->type != CAMQP_TYPE_BYTE
+			&&
+		element->type != CAMQP_TYPE_SHORT
+			&&
+		element->type != CAMQP_TYPE_INT
+			&&
+		element->type != CAMQP_TYPE_LONG
+			&&
+		element->type != CAMQP_TYPE_TIMESTAMP
+	)
+		return 0;
+
+	return element->data.i;
+}
+// ---
+
+/// uint
+
+// UBYTE, USHORT, UINT, ULONG
+camqp_primitive* camqp_primitive_uint(camqp_context* context, camqp_type type, uint64_t value) {
+	if (
+		type != CAMQP_TYPE_UBYTE
+			&&
+		type != CAMQP_TYPE_USHORT
+			&&
+		type != CAMQP_TYPE_UINT
+			&&
+		type != CAMQP_TYPE_ULONG
+	)
+		return NULL;
+
+	camqp_primitive* tp = camqp_primitive_new(context);
+	if (!tp)
+		return NULL;
+
+	tp->type = type;
+	tp->data.ui = value;
+
+	return tp;
+}
+
+uint64_t camqp_value_uint(camqp_primitive* element) {
+	if (!camqp_element_is_primitive((camqp_element*) element))
+		return 0;
+
+	if (!camqp_element_is_scalar((camqp_element*) element))
+		return 0;
+
+	if (
+		element->type != CAMQP_TYPE_UBYTE
+			&&
+		element->type != CAMQP_TYPE_USHORT
+			&&
+		element->type != CAMQP_TYPE_UINT
+			&&
+		element->type != CAMQP_TYPE_ULONG
+	)
+		return 0;
+
+	return element->data.ui;
+}
+// ---
+
+/// float
+
+// DECIMAL32, FLOAT
+camqp_primitive* camqp_primitive_float(camqp_context* context, camqp_type type, float value) {
+	if (
+		type != CAMQP_TYPE_DECIMAL32
+			&&
+		type != CAMQP_TYPE_FLOAT
+	)
+		return NULL;
+
+	camqp_primitive* tp = camqp_primitive_new(context);
+	if (!tp)
+		return NULL;
+
+	tp->type = type;
+	tp->data.f = value;
+
+	return tp;
+}
+
+float camqp_value_float(camqp_primitive* element) {
+	if (!camqp_element_is_primitive((camqp_element*) element))
+		return 0;
+
+	if (!camqp_element_is_scalar((camqp_element*) element))
+		return 0;
+
+	if (
+		element->type != CAMQP_TYPE_FLOAT
+			&&
+		element->type != CAMQP_TYPE_DECIMAL32
+	)
+		return 0;
+
+	return element->data.f;
+}
+// ---
+
+/// double
+
+// DECIMAL64, DOUBLE
+camqp_primitive* camqp_primitive_double(camqp_context* context, camqp_type type, double value) {
+	if (
+		type != CAMQP_TYPE_DECIMAL64
+			&&
+		type != CAMQP_TYPE_DOUBLE
+	)
+		return NULL;
+
+	camqp_primitive* tp = camqp_primitive_new(context);
+	if (!tp)
+		return NULL;
+
+	tp->type = type;
+	tp->data.d = value;
+
+	return tp;
+}
+
+double camqp_value_double(camqp_primitive* element) {
+	if (!camqp_element_is_primitive((camqp_element*) element))
+		return 0;
+
+	if (!camqp_element_is_scalar((camqp_element*) element))
+		return 0;
+
+	if (
+		element->type != CAMQP_TYPE_DOUBLE
+			&&
+		element->type != CAMQP_TYPE_DECIMAL64
+	)
+		return 0;
+
+	return element->data.d;
+}
+// ---
+
+/// string
+
+// STRING, SYMBOL, CHAR, UUID
+camqp_primitive* camqp_primitive_string(camqp_context* context, camqp_type type, camqp_string* value) {
+	if (
+		type != CAMQP_TYPE_STRING
+			&&
+		type != CAMQP_TYPE_SYMBOL
+			&&
+		type != CAMQP_TYPE_CHAR
+			&&
+		type != CAMQP_TYPE_UUID
+	)
+		return NULL;
+
+	camqp_primitive* tp = camqp_primitive_new(context);
+	if (!tp)
+		return NULL;
+
+	tp->type = type;
+	tp->data.str = camqp_string_duplicate(value);
+
+	return tp;
+}
+
+camqp_string* camqp_value_string(camqp_primitive* element) {
+	if (!camqp_element_is_primitive((camqp_element*) element))
+		return NULL;
+
+	if (!camqp_element_is_scalar((camqp_element*) element))
+		return NULL;
+
+	if (
+		element->type != CAMQP_TYPE_STRING
+			&&
+		element->type != CAMQP_TYPE_SYMBOL
+			&&
+		element->type != CAMQP_TYPE_CHAR
+			&&
+		element->type != CAMQP_TYPE_UUID
+	)
+		return NULL;
+
+	return element->data.str;
+}
+// ---
+
+/// binary
+
+camqp_primitive* camqp_primitive_binary(camqp_context* context, camqp_data* value) {
+	camqp_primitive* tp = camqp_primitive_new(context);
+	if (!tp)
+		return NULL;
+
+	tp->type = CAMQP_TYPE_BINARY;
+	tp->data.bin = camqp_data_new(value->bytes, value->size);
+
+	return tp;
+}
+
+camqp_data* camqp_value_binary(camqp_primitive* element) {
+	if (!camqp_element_is_primitive((camqp_element*) element))
+		return NULL;
+
+	if (!camqp_element_is_scalar((camqp_element*) element))
+		return NULL;
+
+	if (element->type != CAMQP_TYPE_BINARY)
+		return NULL;
+
+	return element->data.bin;
+}
+// ---
+
 // ---
 

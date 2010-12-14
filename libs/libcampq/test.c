@@ -19,6 +19,9 @@ int main(int argc, char* argv[]) {
 	if (!str1)
 		err("T002");
 
+	camqp_string str2 = camqp_string_static_nt((camqp_char*)"pela");
+	printf("%.4s:%d\n", str2.chars, str2.length);
+
 	camqp_string_free(str1);
 	// ---
 
@@ -37,9 +40,62 @@ int main(int argc, char* argv[]) {
 	if (!ctx1)
 		err("T003");
 
-	camqp_context_free(ctx1);
-
 	// ---
+
+	/// camqp_primitive
+
+	// boolean
+	camqp_primitive* pt1 = camqp_primitive_bool(ctx1, true);
+	bool vl1 = camqp_value_bool(pt1);
+	printf("boolean: %d\n", vl1);
+	camqp_primitive_free(pt1);
+
+	// int
+	camqp_primitive* pt2 = camqp_primitive_int(ctx1, CAMQP_TYPE_BYTE, -36);
+	int vl2 = camqp_value_int(pt2);
+	printf("int: %d\n", vl2);
+	camqp_primitive_free(pt2);
+
+	// uint
+	camqp_primitive* pt3 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 126);
+	int vl3 = camqp_value_uint(pt3);
+	printf("uint: %d\n", vl3);
+	camqp_primitive_free(pt3);
+
+	// float
+	camqp_primitive* pt4 = camqp_primitive_float(ctx1, CAMQP_TYPE_FLOAT, 3.14);
+	float vl4 = camqp_value_float(pt4);
+	printf("float: %f\n", vl4);
+	camqp_primitive_free(pt4);
+
+	// double
+	camqp_primitive* pt5 = camqp_primitive_double(ctx1, CAMQP_TYPE_DOUBLE, 198.32165489);
+	double vl5 = camqp_value_double(pt5);
+	printf("double: %0.8f\n", vl5);
+	camqp_primitive_free(pt5);
+
+	// string
+	camqp_string str3 = camqp_string_static_nt((camqp_char*) "pela_hopa");
+
+	camqp_primitive* pt6 = camqp_primitive_string(ctx1, CAMQP_TYPE_STRING, &str3);
+	camqp_string* vl6 = camqp_value_string(pt6);
+	printf("%.9s:%d\n", vl6->chars, vl6->length);
+	camqp_primitive_free(pt6);
+
+	// binary
+	camqp_data* dt2 = camqp_data_new((camqp_byte*)"XYZ", 3);
+	if (!dt2)
+		err("T004");
+
+	camqp_primitive* pt7 = camqp_primitive_binary(ctx1, dt2);
+	camqp_data* vl7 = camqp_value_binary(pt7);
+	printf("%.3s:%d\n", vl7->bytes, vl7->size);
+	camqp_primitive_free(pt7);
+
+	camqp_data_free(dt2);
+	// ---
+
+	camqp_context_free(ctx1);
 
 	return EXIT_SUCCESS;
 }
