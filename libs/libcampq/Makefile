@@ -15,7 +15,7 @@ LIBS=\
 CC=gcc
 LD=ld
 STRIP=strip
-CFLAGS=-std=c99 -Wall -O0 -ggdb -fPIC
+CFLAGS=-std=c99 -Wall -O0 -ggdb -fPIC -pedantic
 LFLAGS=
 
 DIR_OBJ=obj

@@ -49,6 +49,15 @@ void camqp_util_free(void* data) {
 	if (data != NULL)
 		free(data);
 }
+
+camqp_char* strdup(const camqp_char* s) {
+	camqp_char* d = (camqp_char*) (malloc(strlen(s) + 1));
+	if (d != NULL)
+		strcpy(d, s);
+
+	return d;
+}
+
 // ---
 
 /// camqp_data
@@ -78,80 +87,26 @@ void camqp_data_free(camqp_data* binary) {
 }
 // ---
 
-/// camqp_string
-camqp_string* camqp_string_new(const camqp_char* string, camqp_size length) {
-	camqp_string* ret;
-
-	// allocate return structure
-	ret = camqp_util_new(sizeof(camqp_string));
-	if (!ret)
-		return NULL;
-
-	// duplicate data
-	ret->chars = camqp_util_new(length);
-	if (!ret->chars) {
-		camqp_util_free(ret);
-		return NULL;
-	}
-	memcpy(ret->chars, string, length);
-	ret->length = length;
-
-	return ret;
-}
-
-camqp_string* camqp_string_duplicate(const camqp_string* original) {
-	return camqp_string_new(original->chars, original->length);
-}
-
-void camqp_string_free(camqp_string* string) {
-	camqp_util_free(string->chars);
-	camqp_util_free(string);
-}
-
-char* camqp_string_cstr(const camqp_string* original) {
-	char* ret;
-
-	ret = camqp_util_new(original->length + 1);
-	if (!ret)
-		return NULL;
-
-	memcpy(ret, original->chars, original->length);
-
-	return ret;
-}
-
-camqp_string camqp_string_static(const camqp_char* string, camqp_size length) {
-	camqp_string ret;
-
-	ret.chars = (camqp_char*) string;
-	ret.length = length;
-
-	return ret;
-}
-// ---
-
 /// camqp_context
 /**
  * TODO: filename is not UTF-8 ready!
  */
-camqp_context* camqp_context_new(camqp_string* protocol, camqp_string* definition) {
+camqp_context* camqp_context_new(const camqp_char* protocol, const camqp_char* definition) {
 	// allocate result structure
 	camqp_context* ctx = camqp_util_new(sizeof(camqp_context));
 	if (!ctx)
 		return NULL;
 
 	// save protocol file and name
-	ctx->protocol = camqp_string_duplicate(protocol);
-	ctx->definition = camqp_string_duplicate(definition);
+	ctx->protocol = strdup(protocol);
+	ctx->definition = strdup(definition);
 
 	// init libxml
 	xmlInitParser();
 	LIBXML_TEST_VERSION
 
 	// load XML document
-	char* filename = camqp_string_cstr(definition);
-	ctx->xml = xmlParseFile(filename);
-	camqp_util_free(filename);
+	ctx->xml = xmlParseFile(definition);
 
 	if (ctx->xml == NULL) {
 		fprintf(stderr, "Unable to parse file\n");
@@ -175,7 +130,7 @@ camqp_context* camqp_context_new(camqp_string* protocol, camqp_string* definitio
 	// check for correct protocol definition
 	xmlNodePtr root = xmlDocGetRootElement(ctx->xml);
 	xmlChar* protocol_def = xmlGetProp(root, (xmlChar*) "name");
-	xmlChar* protocol_req = xmlUTF8Strndup(protocol->chars, protocol->length);
+	xmlChar* protocol_req = xmlStrdup((xmlChar*)protocol);
 
 	if (!xmlStrEqual(protocol_def, protocol_req)) {
 		fprintf(stderr, "Requested protocol is not the one defined in XML definition!\n");
@@ -196,8 +151,8 @@ void camqp_context_free(camqp_context* context) {
 	xmlFreeDoc(context->xml);
 
 	// free string members
-	camqp_string_free(context->protocol);
-	camqp_string_free(context->definition);
+	camqp_util_free(context->protocol);
+	camqp_util_free(context->definition);
 
 	// free structure
 	camqp_util_free(context);
@@ -209,7 +164,7 @@ void camqp_context_free(camqp_context* context) {
 // TODO
 void camqp_element_free(camqp_element* element) {
 	if (element->class == CAMQP_CLASS_PRIMITIVE)
-		return camqp_primitive_free((camqp_primitive*) element);
+		camqp_primitive_free((camqp_primitive*) element);
 }
 // ---
 
@@ -224,7 +179,7 @@ camqp_primitive* camqp_primitive_new(camqp_context* context) {
 	ret->base.multiple = CAMQP_MULTIPLICITY_SCALAR;
 
 	return ret;
-};
+}
 
 void camqp_primitive_free(camqp_primitive* element) {
 	// for dynamic elements free data memory
@@ -237,7 +192,7 @@ void camqp_primitive_free(camqp_primitive* element) {
 			||
 		element->type == CAMQP_TYPE_SYMBOL
 	)
-		camqp_string_free(element->data.str);
+		camqp_util_free(element->data.str);
 
 	if (element->type == CAMQP_TYPE_BINARY)
 		camqp_data_free(element->data.bin);
@@ -459,7 +414,7 @@ double camqp_value_double(camqp_primitive* element) {
 /// string
 
 // STRING, SYMBOL, CHAR, UUID
-camqp_primitive* camqp_primitive_string(camqp_context* context, camqp_type type, camqp_string* value) {
+camqp_primitive* camqp_primitive_string(camqp_context* context, camqp_type type, const camqp_char* value) {
 	if (
 		type != CAMQP_TYPE_STRING
 			&&
@@ -476,12 +431,16 @@ camqp_primitive* camqp_primitive_string(camqp_context* context, camqp_type type,
 		return NULL;
 
 	tp->type = type;
-	tp->data.str = camqp_string_duplicate(value);
+	tp->data.str = strdup(value);
+	if (!tp->data.str) {
+		camqp_util_free(tp);
+		return NULL;
+	}
 
 	return tp;
 }
 
-camqp_string* camqp_value_string(camqp_primitive* element) {
+const camqp_char* camqp_value_string(camqp_primitive* element) {
 	if (!camqp_element_is_primitive((camqp_element*) element))
 		return NULL;
 
@@ -533,12 +492,17 @@ camqp_data* camqp_value_binary(camqp_primitive* element) {
 // ---
 
 /// camqp_vector
-camqp_vector_item* camqp_vector_item_new(camqp_string* key, camqp_element* value) {
+camqp_vector_item* camqp_vector_item_new(const camqp_char* key, camqp_element* value) {
 	camqp_vector_item* itm = camqp_util_new(sizeof(camqp_vector_item));
 	if (!itm)
 		return NULL;
 
-	itm->key = camqp_string_duplicate(key);
+	itm->key = strdup(key);
+	if (!itm->key) {
+		camqp_util_free(itm);
+		return NULL;
+	}
+
 	itm->value = value;
 	itm->next = NULL;
 
@@ -546,7 +510,7 @@ camqp_vector_item* camqp_vector_item_new(camqp_string* key, camqp_element* value
 }
 
 void camqp_vector_item_free(camqp_vector_item* item) {
-	camqp_string_free(item->key);
+	camqp_util_free(item->key);
 	camqp_util_free(item);
 }
 
@@ -569,7 +533,7 @@ void camqp_vector_free(camqp_vector* vector) {
 	// delete all elements from vector
 	camqp_vector_item* to_del = vector->data;
 	while (to_del) {
-		camqp_vector_item* to_del_next = to_del->next;
+		camqp_vector_item* to_del_next = (camqp_vector_item*) to_del->next;
 		camqp_vector_item_free(to_del);
 		to_del = to_del_next;
 	}
@@ -578,7 +542,7 @@ void camqp_vector_free(camqp_vector* vector) {
 	camqp_util_free(vector);
 }
 
-void camqp_vector_item_put(camqp_vector* vector, camqp_string* key, camqp_element* element) {
+void camqp_vector_item_put(camqp_vector* vector, const camqp_char* key, camqp_element* element) {
 	// check if contexts are matching
 	if (vector->base.context != element->context)
 		return;
