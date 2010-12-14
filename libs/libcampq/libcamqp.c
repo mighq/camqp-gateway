@@ -6,8 +6,9 @@
 #include <libxml/parser.h>
 #include <libxml/xinclude.h>
 
-// TODO, nejak poriesit exception navratove hodnoty?
-// todo kontrolovanie utf8 stringov
+// TODO nejak poriesit exception navratove hodnoty?
+// TODO kontrolovanie utf8 stringov
+// TODO hashova reprezentacia vektorov
 
 /// utils
 
@@ -669,7 +670,7 @@ camqp_composite* camqp_composite_new(camqp_context* context, const camqp_char* t
 	if (context == NULL)
 		return NULL;
 
-	// check for valid name & type
+	// TODO: check for valid name & type
 	camqp_char* real_name = type_name;
 	camqp_code real_code = type_code;
 
@@ -691,12 +692,118 @@ camqp_composite* camqp_composite_new(camqp_context* context, const camqp_char* t
 	return comp;
 }
 
-void camqp_composite_free(camqp_composite* element) {
+void camqp_composite_free(camqp_composite* element, bool free_values) {
 	if (element == NULL)
 		return;
 
+	// delete all elements from fields
+	camqp_vector_item* to_del = element->fields;
+	while (to_del) {
+		camqp_vector_item* to_del_next = (camqp_vector_item*) to_del->next;
+		camqp_vector_item_free(to_del, free_values);
+		to_del = to_del_next;
+	}
+
 	camqp_util_free(element->name);
 	camqp_util_free(element);
+}
+
+// TODO spolocny codebase s vektorom
+void camqp_composite_field_put(camqp_composite* element, const camqp_char* key, camqp_element* item) {
+	// check if contexts are matching
+	if (element->base.context != item->context)
+		return;
+
+	// create new item
+	camqp_vector_item* el = camqp_vector_item_new(key, item);
+	if (!el)
+		return;
+
+	// find position in vector
+
+	// pointer to first item
+	camqp_vector_item* before  = element->fields;
+
+	// pointer to second item
+	camqp_vector_item* after = NULL;
+	if (before) {
+		// pointer to second item if first exists
+		after = before->next;
+	} else {
+		// insert into empty vector
+		element->fields = el;
+		return;
+	}
+
+	do {
+		// at the beginning
+		if (before == element->fields) {
+			// compare with first item
+			int cmp1 = xmlStrcmp(key, before->key);
+			if (cmp1 < 0) {
+				// insert to the beginning
+				el->next = before;
+				element->fields = el;
+				return;
+			}
+
+			// keys cannot be duplicate!
+			if (cmp1 == 0) {
+				camqp_vector_item_free(el, false);
+				return;
+			}
+		}
+
+		// after exists?
+		if (after == NULL) {
+			// at to the end
+			before->next = el;
+			return;
+		}
+
+		// compare with after
+		int cmp2 = xmlStrcmp(key, after->key);
+
+		// don't allow duplicate keys
+		if (cmp2 == 0) {
+			camqp_vector_item_free(el, false);
+			return;
+		}
+
+		// new is greater than after
+		if (cmp2 > 0) {
+			// move pointers
+			before = after;
+			after = after->next;
+			continue;
+		}
+
+		// this is desired position
+		if (cmp2 < 0) {
+			// insert before "after"
+			before->next = el;
+			el->next = after;
+			return;
+		}
+	} while (true);
+}
+
+// TODO spolocny codebase s vektorom
+camqp_element* camqp_composite_field_get(camqp_composite* element, const camqp_char* key) {
+	camqp_element* ret = NULL;
+
+	camqp_vector_item* curr = element->fields;
+	while (curr) {
+		int cmp = xmlStrcmp(key, curr->key);
+		if (cmp == 0) {
+			ret = curr->value;
+			break;
+		}
+
+		curr = curr->next;
+	}
+
+	return ret;
 }
 
 // ---

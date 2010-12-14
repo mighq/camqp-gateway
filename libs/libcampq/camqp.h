@@ -198,7 +198,7 @@ typedef struct {
 } camqp_composite;
 
 camqp_composite*	camqp_composite_new(camqp_context* context, const camqp_char* type_name, camqp_code type_code);
-void				camqp_composite_free(camqp_composite* element);
+void				camqp_composite_free(camqp_composite* element, bool free_values);
 
 void				camqp_composite_field_put(camqp_composite* element, const camqp_char* key, camqp_element* item);
 camqp_element*		camqp_composite_field_get(camqp_composite* element, const camqp_char* key);

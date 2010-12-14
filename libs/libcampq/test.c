@@ -112,7 +112,17 @@ int main(int argc, char* argv[]) {
 
 	/// camqp_composite
 	camqp_composite* comp1 = camqp_composite_new(ctx1, (camqp_char*) "response", 0);
-	camqp_composite_free(comp1);
+
+	camqp_primitive* pt13 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 325);
+	camqp_composite_field_put(comp1, (camqp_char*) "cislo", (camqp_element*) pt13);
+
+	{
+		camqp_element* el2 = camqp_composite_field_get(comp1, (camqp_char*) "cislo");
+		uint64_t y = camqp_value_uint((camqp_primitive*) el2);
+		printf("field 'cislo': 325=%d?\n", (int) y);
+	}
+
+	camqp_composite_free(comp1, true);
 	// ---
 
 	camqp_context_free(ctx1);
