@@ -13,7 +13,9 @@
 
 /// enumerations
 typedef enum {
-	CAMQP_TYPE_BOOLEAN = 1,
+	CAMQP_TYPE_NULL = 0,
+	//
+	CAMQP_TYPE_BOOLEAN,
 	//
 	CAMQP_TYPE_UBYTE,
 	CAMQP_TYPE_USHORT,
@@ -56,6 +58,9 @@ typedef uint32_t	camqp_size;
 typedef uint8_t		camqp_char;
 typedef uint32_t	camqp_code;
 // ---
+
+void* camqp_util_new(camqp_size size);
+void camqp_util_free(void* data);
 
 /// types
 
@@ -136,6 +141,9 @@ typedef struct {
 camqp_primitive* camqp_primitive_new(camqp_context* context); //X
 void camqp_primitive_free(camqp_primitive* element); //X
 
+camqp_primitive*	camqp_primitive_null(camqp_context* context);
+bool				camqp_element_is_null(camqp_element* element);
+
 camqp_primitive*	camqp_primitive_bool(camqp_context* context,					bool value);				// BOOL
 camqp_primitive*	camqp_primitive_int(camqp_context* context, camqp_type type,	int64_t value);				// BYTE, SHORT, INT, LONG, TIMESTAMP
 camqp_primitive*	camqp_primitive_uint(camqp_context* context, camqp_type type,	uint64_t value);			// UBYTE, USHORT, UINT, ULONG
@@ -208,8 +216,16 @@ camqp_element*		camqp_composite_field_get(camqp_composite* element, const camqp_
 
 // ---
 
+char* dump_data(unsigned char* pointer, unsigned int length);
+camqp_char* camqp_data_dump(camqp_data* data);
+
 /// encoding, decoding & querying
 camqp_data*		camqp_element_encode(camqp_element* element);
+void			camqp_encode_primitive(camqp_primitive* element, camqp_data** buffer);
+void			camqp_encode_primitive_null(camqp_data** buffer);
+void			camqp_encode_primitive_bool(camqp_primitive* primitive, camqp_data** buffer);
+void			camqp_encode_primitive_uint(camqp_primitive* element, camqp_data** buffer);
+
 camqp_element*	camqp_element_decode(camqp_context* context, camqp_data* binary);
 camqp_element*	camqp_query(camqp_context* context, const camqp_char* query, camqp_data* binary);
 // ---

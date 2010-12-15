@@ -7,9 +7,7 @@
 #include <libxml/xinclude.h>
 #include <libxml/xpathInternals.h>
 
-// TODO nejak poriesit exception navratove hodnoty?
-// TODO kontrolovanie utf8 stringov
-// TODO hashova reprezentacia vektorov
+// TODO: vector a scalar odvodit od primitive
 
 /// utils
 
@@ -52,6 +50,36 @@ void camqp_util_free(void* data) {
 		return;
 
 	free(data);
+}
+
+char* dump_data(unsigned char* pointer, unsigned int length)
+{
+	if (pointer == NULL || length == 0)
+		return NULL;
+
+	char* ret = malloc(length*5+1);
+	if (!ret)
+		return NULL;
+
+	memset(ret, '_', length*5);
+
+	unsigned int i;
+	for (i = 0; i < length; i++) {
+		memcpy(ret+(5*i), "0x", 2);
+		ret[5*i + 2] = "0123456789ABCDEF"[pointer[i] >> 4];
+		ret[5*i + 3] = "0123456789ABCDEF"[pointer[i] & 0x0F];
+		ret[5*i + 4] = ' ';
+	}
+	ret[length*5] = 0x00;
+
+	return ret;
+}
+
+camqp_char* camqp_data_dump(camqp_data* data) {
+	if (data == NULL)
+		return NULL;
+
+	return (camqp_char*) dump_data(data->bytes, data->size);
 }
 // ---
 
@@ -176,14 +204,36 @@ void camqp_context_free(camqp_context* context) {
 
 /// camqp_element
 
-// TODO
 void camqp_element_free(camqp_element* element) {
 	if (element == NULL)
 		return;
 
-	if (element->class == CAMQP_CLASS_PRIMITIVE)
+	if (element->class == CAMQP_CLASS_PRIMITIVE) {
 		camqp_primitive_free((camqp_primitive*) element);
+	} else if (element->class == CAMQP_CLASS_COMPOSITE) {
+		camqp_composite_free((camqp_composite*) element, true);
+	}
 }
+
+camqp_primitive* camqp_primitive_null(camqp_context* context) {
+	camqp_primitive* tp = camqp_primitive_new(context);
+	if (!tp)
+		return NULL;
+
+	tp->type = CAMQP_TYPE_NULL;
+
+	return tp;
+}
+
+bool camqp_element_is_null(camqp_element* element) {
+	if (element->class == CAMQP_CLASS_PRIMITIVE && element->multiple == CAMQP_MULTIPLICITY_SCALAR) {
+		camqp_primitive* primitive = (camqp_primitive*) element;
+		return (primitive->type == CAMQP_TYPE_NULL);
+	}
+
+	return false;
+}
+
 // ---
 
 /// camqp_primitive
@@ -755,7 +805,7 @@ camqp_composite* camqp_composite_new(camqp_context* context, const camqp_char* t
 			return NULL;
 		}
 
-		sscanf(code_str, "0x%08X", &real_code);
+		sscanf((const char*) code_str, "0x%08X", &real_code);
 		xmlFree(code_str);
 	} else {
 		real_code = type_code;
@@ -894,6 +944,112 @@ camqp_element* camqp_composite_field_get(camqp_composite* element, const camqp_c
 
 	return ret;
 }
+
+// ---
+
+/// encoding
+camqp_data* camqp_element_encode(camqp_element* element) {
+	camqp_data* encoded = NULL;
+
+	if (element->class == CAMQP_CLASS_PRIMITIVE)
+		camqp_encode_primitive((camqp_primitive*) element, &encoded);
+
+	return encoded;
+}
+
+void camqp_encode_primitive(camqp_primitive* element, camqp_data** buffer) {
+	if (element->base.multiple == CAMQP_MULTIPLICITY_SCALAR) {
+		switch (element->type) {
+			case CAMQP_TYPE_NULL:
+				camqp_encode_primitive_null(buffer);
+				break;
+			case CAMQP_TYPE_BOOLEAN:
+				camqp_encode_primitive_bool(element, buffer);
+				break;
+			case CAMQP_TYPE_UBYTE:
+			case CAMQP_TYPE_USHORT:
+			case CAMQP_TYPE_UINT:
+			case CAMQP_TYPE_ULONG:
+				camqp_encode_primitive_uint(element, buffer);
+				break;
+		}
+	} else if (element->base.multiple == CAMQP_MULTIPLICITY_SCALAR) {
+		// TODO
+	}
+}
+
+void camqp_encode_primitive_null(camqp_data** buffer) {
+	// allocate working data
+	camqp_byte* wk = camqp_util_new(1*sizeof(camqp_byte));
+	if (!wk)
+		return;
+
+	memcpy(wk, "\x40", 1);
+
+	// copy working data to camqp_data structure
+	camqp_data* data = camqp_data_new(wk, 1);
+	// free working data
+	camqp_util_free(wk);
+	// set the result
+	*buffer = data;
+}
+
+void camqp_encode_primitive_bool(camqp_primitive* primitive, camqp_data** buffer) {
+	if (primitive->type != CAMQP_TYPE_BOOLEAN)
+		return;
+
+	// allocate working data
+	camqp_byte* wk = camqp_util_new(1*sizeof(camqp_byte));
+	if (!wk)
+		return;
+
+	if (primitive->data.b == true)
+		memcpy(wk, "\x41", 1);
+	else
+		memcpy(wk, "\x42", 1);
+
+	// copy working data to camqp_data structure
+	camqp_data* data = camqp_data_new(wk, 1);
+	// free working data
+	camqp_util_free(wk);
+	// set the result
+	*buffer = data;
+}
+
+void camqp_encode_primitive_uint(camqp_primitive* element, camqp_data** buffer) {
+	if (
+		element->type != CAMQP_TYPE_UBYTE
+			&&
+		element->type != CAMQP_TYPE_USHORT
+			&&
+		element->type != CAMQP_TYPE_UINT
+			&&
+		element->type != CAMQP_TYPE_ULONG
+	)
+		return;
+
+	// allocate working data
+	camqp_byte* wk = camqp_util_new(9*sizeof(camqp_byte));
+	if (!wk)
+		return;
+
+	uint8_t len = 0;
+	if (element->type == CAMQP_TYPE_UBYTE) {
+		len = 2;
+		memcpy(wk, "\x50", 1);
+		memcpy(wk+1, (void*) &element->data.ui, 1);
+	} else if (element->type == CAMQP_TYPE_USHORT) {
+
+	}
+
+	// copy working data to camqp_data structure
+	camqp_data* data = camqp_data_new(wk, len);
+	// free working data
+	camqp_util_free(wk);
+	// set the result
+	*buffer = data;
+}
+
 
 // ---
 

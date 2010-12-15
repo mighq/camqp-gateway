@@ -16,6 +16,10 @@ funkcie:
 
 BUDUCNOST podpora namespacov -> viac kontextov / protokolov
 
+// TODO nejak poriesit exception navratove hodnoty?
+// TODO kontrolovanie utf8 stringov
+// TODO hashova reprezentacia vektorov
+
 query syntax
 /			- element
 /abc		- field kompozitneho elementu

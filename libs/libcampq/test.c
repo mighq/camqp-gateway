@@ -75,6 +75,12 @@ int main(int argc, char* argv[]) {
 	camqp_primitive_free(pt7);
 
 	camqp_data_free(dt2);
+
+	// null
+	camqp_element* tp_n = (camqp_element*) camqp_primitive_null(ctx1);
+	printf("is null: %d\n", camqp_element_is_null(tp_n));
+	camqp_element_free(tp_n);
+
 	// ---
 
 	/// camqp_vector
@@ -127,6 +133,52 @@ int main(int argc, char* argv[]) {
 	}
 
 	camqp_composite_free(comp1, true);
+	// ---
+
+	/// encoding
+
+	// null
+	{
+		camqp_primitive* pt = camqp_primitive_null(ctx1);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_char* dump = camqp_data_dump(enc);
+
+		printf("%s\n", dump);
+
+		camqp_util_free(dump);
+		camqp_data_free(enc);
+		camqp_element_free((camqp_element*) pt);
+	}
+
+	// bool
+	{
+		camqp_primitive* pt = camqp_primitive_bool(ctx1, false);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_char* dump = camqp_data_dump(enc);
+
+		printf("%s\n", dump);
+
+		camqp_util_free(dump);
+		camqp_data_free(enc);
+		camqp_element_free((camqp_element*) pt);
+	}
+
+	// ubyte
+	{
+		camqp_primitive* pt = camqp_primitive_uint(ctx1, CAMQP_TYPE_UBYTE, 45);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_char* dump = camqp_data_dump(enc);
+
+		printf("%s\n", dump);
+
+		camqp_util_free(dump);
+		camqp_data_free(enc);
+		camqp_element_free((camqp_element*) pt);
+	}
+
 	// ---
 
 	camqp_context_free(ctx1);
