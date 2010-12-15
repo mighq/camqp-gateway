@@ -5,6 +5,7 @@
 #include <libxml/xmlstring.h>
 #include <libxml/parser.h>
 #include <libxml/xinclude.h>
+#include <libxml/xpathInternals.h>
 
 // TODO nejak poriesit exception navratove hodnoty?
 // TODO kontrolovanie utf8 stringov
@@ -115,9 +116,22 @@ camqp_context* camqp_context_new(const camqp_char* protocol, const camqp_char* d
 	if (xmlXIncludeProcess(ctx->xml) <= 0) {
 		fprintf(stderr, "XInclude processing failed\n");
 		xmlCleanupParser();
+		xmlFreeDoc(ctx->xml);
 		camqp_context_free(ctx);
 		return NULL;
 	}
+
+	// Create xpath evaluation context
+	ctx->xpath = xmlXPathNewContext(ctx->xml);
+	if (ctx->xpath == NULL) {
+		fprintf(stderr, "Error: unable to create new XPath context\n");
+		xmlCleanupParser();
+		xmlFreeDoc(ctx->xml);
+		camqp_context_free(ctx);
+		return NULL;
+	}
+
+	xmlXPathRegisterNs(ctx->xpath, (xmlChar*) "amqp", (xmlChar*) "http://www.amqp.org/schema/amqp.xsd");
 
 	// shutdown libxml
 	xmlCleanupParser();
@@ -148,6 +162,7 @@ void camqp_context_free(camqp_context* context) {
 		return;
 
 	// free XML document
+	xmlXPathFreeContext(context->xpath);
 	xmlFreeDoc(context->xml);
 
 	// free string members
@@ -670,9 +685,83 @@ camqp_composite* camqp_composite_new(camqp_context* context, const camqp_char* t
 	if (context == NULL)
 		return NULL;
 
+	// don't know what do create
+	if (type_name == NULL && type_code == 0)
+		return NULL;
+
 	// TODO: check for valid name & type
-	camqp_char* real_name = type_name;
-	camqp_code real_code = type_code;
+	const uint16_t max_expr_length = 128;
+	camqp_char* expr = NULL;
+
+	if (type_name != NULL && type_code == 0) {
+		uint32_t str_len = (max_expr_length + strlen((char*)type_name)) * sizeof(camqp_char);
+		expr = camqp_util_new(str_len + 1);
+		snprintf((char*)expr, str_len, "//amqp:type[@name='%s' and @class='composite']/amqp:descriptor[not(@name) or @name='%s']", type_name, type_name);
+	}
+
+	if (type_name == NULL && type_code != 0) {
+		uint32_t str_len = (max_expr_length) * sizeof(camqp_char);
+		expr = camqp_util_new(str_len + 1);
+		snprintf((char*)expr, str_len, "//amqp:type[@class='composite']/amqp:descriptor[@code='0x%08X']", type_code);
+	}
+
+	if (type_name != NULL && type_code != 0) {
+		uint32_t str_len = (max_expr_length) * sizeof(camqp_char);
+		expr = camqp_util_new(str_len + 1);
+		snprintf((char*)expr, str_len, "//amqp:type[@name='%s' and @class='composite']/amqp:descriptor[@code='0x%08X' and (not(@name) or @name='%s')]", type_name, type_code, type_name);
+	}
+
+	xmlXPathObjectPtr xp = xmlXPathEvalExpression(expr, context->xpath);
+	camqp_util_free(expr);
+
+	if (!xp)
+		return NULL;
+
+	// no such type found, or found many
+	if (xp->nodesetval->nodeNr != 1) {
+		xmlXPathFreeObject(xp);
+		return NULL;
+	}
+
+	camqp_char* real_name;
+	if (type_name == NULL) {
+		// detect from XML
+		xmlChar* name_str = xmlGetProp(xp->nodesetval->nodeTab[0], (xmlChar*) "name");
+		if (!name_str) {
+			// get it from descriptor element
+			xmlNodePtr type_elem = xp->nodesetval->nodeTab[0]->parent;
+			xmlChar* name_str2 = xmlGetProp(type_elem, (xmlChar*) "name");
+			if (!name_str2) {
+				// should be set!
+				xmlXPathFreeObject(xp);
+				return NULL;
+			}
+			real_name = (camqp_char*) name_str2;
+		} else {
+			// get it from type element
+			real_name = (camqp_char*) name_str;
+		}
+	} else {
+		real_name = xmlStrdup(type_name);
+	}
+
+	camqp_code real_code;
+	if (type_code == 0) {
+		// detect from XML
+		xmlChar* code_str = xmlGetProp(xp->nodesetval->nodeTab[0], (xmlChar*) "code");
+		if (!code_str) {
+			camqp_util_free(real_name);
+			xmlXPathFreeObject(xp);
+			return NULL;
+		}
+
+		sscanf(code_str, "0x%08X", &real_code);
+		xmlFree(code_str);
+	} else {
+		real_code = type_code;
+	}
+
+	xmlXPathFreeObject(xp);
 
 	// create representation
 	camqp_composite* comp = camqp_util_new(sizeof(camqp_composite));
@@ -684,7 +773,7 @@ camqp_composite* camqp_composite_new(camqp_context* context, const camqp_char* t
 	comp->base.class = CAMQP_CLASS_COMPOSITE;
 	comp->base.multiple = CAMQP_MULTIPLICITY_SCALAR;
 
-	comp->name = xmlStrdup(real_name);
+	comp->name = real_name;
 	comp->code = real_code;
 
 	comp->fields = NULL;

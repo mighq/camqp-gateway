@@ -8,6 +8,7 @@
 #include <stdbool.h>
 
 #include <libxml/tree.h>
+#include <libxml/xpath.h>
 // ---
 
 /// enumerations
@@ -77,7 +78,8 @@ typedef struct {
 	camqp_char*	definition;
 
 	// parsed XML definition handle
-	xmlDocPtr	xml;
+	xmlDocPtr			xml;
+	xmlXPathContextPtr	xpath;
 } camqp_context;
 
 /**

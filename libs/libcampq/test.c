@@ -111,7 +111,11 @@ int main(int argc, char* argv[]) {
 	// ---
 
 	/// camqp_composite
-	camqp_composite* comp1 = camqp_composite_new(ctx1, (camqp_char*) "response", 0);
+	camqp_composite* comp1 = camqp_composite_new(ctx1, (camqp_char*) "response", 2);
+	if (!comp1) {
+		camqp_context_free(ctx1);
+		err("T008");
+	}
 
 	camqp_primitive* pt13 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 325);
 	camqp_composite_field_put(comp1, (camqp_char*) "cislo", (camqp_element*) pt13);
