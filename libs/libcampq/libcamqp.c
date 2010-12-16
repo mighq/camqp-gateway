@@ -7,6 +7,22 @@
 #include <libxml/xinclude.h>
 #include <libxml/xpathInternals.h>
 
+#include <netinet/in.h>
+
+// TODO: what about other platforms?
+#define ntohll(x) ( ( (uint64_t)(ntohl( (uint32_t)((x << 32) >> 32) )) << 32) | ntohl( ((uint32_t)(x >> 32)) ) )
+#define htonll(x) ntohll(x)
+
+uint64_t twos_complement(int64_t nr) {
+	// positive
+	if (nr >= 0)
+		return nr;
+
+	// negative
+	uint64_t nu = llabs(nr) ^ 0xFFFFFFFFFFFFFFFF;
+	return nu + 0x01;
+}
+
 // TODO: vector a scalar odvodit od primitive
 
 /// utils
@@ -972,6 +988,12 @@ void camqp_encode_primitive(camqp_primitive* element, camqp_data** buffer) {
 			case CAMQP_TYPE_ULONG:
 				camqp_encode_primitive_uint(element, buffer);
 				break;
+			case CAMQP_TYPE_BYTE:
+			case CAMQP_TYPE_SHORT:
+			case CAMQP_TYPE_INT:
+			case CAMQP_TYPE_LONG:
+				camqp_encode_primitive_int(element, buffer);
+				break;
 		}
 	} else if (element->base.multiple == CAMQP_MULTIPLICITY_SCALAR) {
 		// TODO
@@ -1039,7 +1061,20 @@ void camqp_encode_primitive_uint(camqp_primitive* element, camqp_data** buffer) 
 		memcpy(wk, "\x50", 1);
 		memcpy(wk+1, (void*) &element->data.ui, 1);
 	} else if (element->type == CAMQP_TYPE_USHORT) {
-
+		len = 3;
+		uint16_t conv = (uint16_t) htons((uint16_t) element->data.ui);
+		memcpy(wk, "\x60", 1);
+		memcpy(wk+1, (void*) &conv, 2);
+	} else if (element->type == CAMQP_TYPE_UINT) {
+		len = 5;
+		uint32_t conv = (uint32_t) htonl((uint32_t) element->data.ui);
+		memcpy(wk, "\x70", 1);
+		memcpy(wk+1, (void*) &conv, 4);
+	} else if (element->type == CAMQP_TYPE_ULONG) {
+		len = 9;
+		uint64_t conv = (uint64_t) htonll((uint64_t) element->data.ui);
+		memcpy(wk, "\x80", 1);
+		memcpy(wk+1, (void*) &conv, 8);
 	}
 
 	// copy working data to camqp_data structure
@@ -1050,6 +1085,56 @@ void camqp_encode_primitive_uint(camqp_primitive* element, camqp_data** buffer) 
 	*buffer = data;
 }
 
+void camqp_encode_primitive_int(camqp_primitive* element, camqp_data** buffer) {
+	if (
+		element->type != CAMQP_TYPE_BYTE
+			&&
+		element->type != CAMQP_TYPE_SHORT
+			&&
+		element->type != CAMQP_TYPE_INT
+			&&
+		element->type != CAMQP_TYPE_LONG
+	)
+		return;
+
+	// allocate working data
+	camqp_byte* wk = camqp_util_new(9*sizeof(camqp_byte));
+	if (!wk)
+		return;
+
+	uint8_t len = 0;
+	if (element->type == CAMQP_TYPE_BYTE) {
+		len = 2;
+		uint8_t conv = (uint8_t) twos_complement(element->data.i);
+		memcpy(wk, "\x51", 1);
+		memcpy(wk+1, &conv, 1);
+	} else if (element->type == CAMQP_TYPE_SHORT) {
+		len = 3;
+		uint16_t conv1 = (uint16_t) twos_complement(element->data.i);
+		uint16_t conv = htons(conv1);
+		memcpy(wk, "\x61", 1);
+		memcpy(wk+1, (void*) &conv, 2);
+	} else if (element->type == CAMQP_TYPE_INT) {
+		len = 5;
+		uint32_t conv1 = (uint32_t) twos_complement(element->data.i);
+		uint32_t conv = htonl(conv1);
+		memcpy(wk, "\x71", 1);
+		memcpy(wk+1, (void*) &conv, 4);
+	} else if (element->type == CAMQP_TYPE_LONG) {
+		len = 9;
+		uint64_t conv1 = twos_complement(element->data.i);
+		uint64_t conv = htonll(conv1);
+		memcpy(wk, "\x81", 1);
+		memcpy(wk+1, (void*) &conv, 8);
+	}
+
+	// copy working data to camqp_data structure
+	camqp_data* data = camqp_data_new(wk, len);
+	// free working data
+	camqp_util_free(wk);
+	// set the result
+	*buffer = data;
+}
 
 // ---
 

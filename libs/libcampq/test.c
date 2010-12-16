@@ -179,6 +179,104 @@ int main(int argc, char* argv[]) {
 		camqp_element_free((camqp_element*) pt);
 	}
 
+	// ushort
+	{
+		camqp_primitive* pt = camqp_primitive_uint(ctx1, CAMQP_TYPE_USHORT, 612);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_char* dump = camqp_data_dump(enc);
+
+		printf("%s\n", dump);
+
+		camqp_util_free(dump);
+		camqp_data_free(enc);
+		camqp_element_free((camqp_element*) pt);
+	}
+
+	// uint
+	{
+		camqp_primitive* pt = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 76543);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_char* dump = camqp_data_dump(enc);
+
+		printf("%s\n", dump);
+
+		camqp_util_free(dump);
+		camqp_data_free(enc);
+		camqp_element_free((camqp_element*) pt);
+	}
+
+	// ulong
+	{
+		camqp_primitive* pt = camqp_primitive_uint(ctx1, CAMQP_TYPE_ULONG, 9294967297);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_char* dump = camqp_data_dump(enc);
+
+		printf("%s\n", dump);
+
+		camqp_util_free(dump);
+		camqp_data_free(enc);
+		camqp_element_free((camqp_element*) pt);
+	}
+
+	// byte
+	{
+		camqp_primitive* pt = camqp_primitive_int(ctx1, CAMQP_TYPE_BYTE, 45);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_char* dump = camqp_data_dump(enc);
+
+		printf("%s\n", dump);
+
+		camqp_util_free(dump);
+		camqp_data_free(enc);
+		camqp_element_free((camqp_element*) pt);
+	}
+
+	// short
+	{
+		camqp_primitive* pt = camqp_primitive_int(ctx1, CAMQP_TYPE_SHORT, -1367);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_char* dump = camqp_data_dump(enc);
+
+		printf("%s\n", dump);
+
+		camqp_util_free(dump);
+		camqp_data_free(enc);
+		camqp_element_free((camqp_element*) pt);
+	}
+
+	// int
+	{
+		camqp_primitive* pt = camqp_primitive_int(ctx1, CAMQP_TYPE_INT, -46377105);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_char* dump = camqp_data_dump(enc);
+
+		printf("%s\n", dump);
+
+		camqp_util_free(dump);
+		camqp_data_free(enc);
+		camqp_element_free((camqp_element*) pt);
+	}
+
+	// long
+	{
+		camqp_primitive* pt = camqp_primitive_int(ctx1, CAMQP_TYPE_LONG, 80181598485);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_char* dump = camqp_data_dump(enc);
+
+		printf("%s\n", dump);
+
+		camqp_util_free(dump);
+		camqp_data_free(enc);
+		camqp_element_free((camqp_element*) pt);
+	}
+
 	// ---
 
 	camqp_context_free(ctx1);

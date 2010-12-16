@@ -225,6 +225,7 @@ void			camqp_encode_primitive(camqp_primitive* element, camqp_data** buffer);
 void			camqp_encode_primitive_null(camqp_data** buffer);
 void			camqp_encode_primitive_bool(camqp_primitive* primitive, camqp_data** buffer);
 void			camqp_encode_primitive_uint(camqp_primitive* element, camqp_data** buffer);
+void			camqp_encode_primitive_int(camqp_primitive* element, camqp_data** buffer);
 
 camqp_element*	camqp_element_decode(camqp_context* context, camqp_data* binary);
 camqp_element*	camqp_query(camqp_context* context, const camqp_char* query, camqp_data* binary);
