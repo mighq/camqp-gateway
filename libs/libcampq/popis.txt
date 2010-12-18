@@ -19,6 +19,8 @@ BUDUCNOST podpora namespacov -> viac kontextov / protokolov
 // TODO nejak poriesit exception navratove hodnoty?
 // TODO kontrolovanie utf8 stringov
 // TODO hashova reprezentacia vektorov
+// TODO podpora UTF16 (0xA2 a 0xB2)
+// podpora inej platformy nez i686
 
 query syntax
 /			- element

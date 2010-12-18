@@ -9,6 +9,8 @@
 
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
+
+#include <uuid/uuid.h>
 // ---
 
 /// enumerations
@@ -33,7 +35,7 @@ typedef enum {
 	CAMQP_TYPE_DECIMAL64, //?
 	CAMQP_TYPE_TIMESTAMP,
 	//
-	CAMQP_TYPE_CHAR,
+	CAMQP_TYPE_CHAR,   // UTF-32 char
 	CAMQP_TYPE_STRING, // UTF-8 string
 	CAMQP_TYPE_SYMBOL, // ASCII string
 	CAMQP_TYPE_UUID,
@@ -57,6 +59,7 @@ typedef uint8_t		camqp_byte;
 typedef uint32_t	camqp_size;
 typedef uint8_t		camqp_char;
 typedef uint32_t	camqp_code;
+typedef uuid_t		camqp_uuid;
 // ---
 
 void* camqp_util_new(camqp_size size);
@@ -70,6 +73,7 @@ typedef struct {
 	camqp_size		size; // max size of 4GB for 32b integer
 } camqp_data;
 
+camqp_data	camqp_data_static(const camqp_byte* data, camqp_size size);
 camqp_data*	camqp_data_new(const camqp_byte* data, camqp_size size);
 void		camqp_data_free(camqp_data* binary);
 // ---
@@ -135,6 +139,7 @@ typedef struct {
 		double			d;
 		camqp_char*		str;
 		camqp_data*		bin;
+		camqp_uuid		uid;
 	} data;
 } camqp_primitive;
 
@@ -149,16 +154,18 @@ camqp_primitive*	camqp_primitive_int(camqp_context* context, camqp_type type,	in
 camqp_primitive*	camqp_primitive_uint(camqp_context* context, camqp_type type,	uint64_t value);			// UBYTE, USHORT, UINT, ULONG
 camqp_primitive*	camqp_primitive_float(camqp_context* context, camqp_type type,	float value);				// DECIMAL32, FLOAT
 camqp_primitive*	camqp_primitive_double(camqp_context* context, camqp_type type,	double value);				// DECIMAL64, DOUBLE
-camqp_primitive*	camqp_primitive_string(camqp_context* context, camqp_type type,	const camqp_char* value);	// STRING, SYMBOL, CHAR, UUID
+camqp_primitive*	camqp_primitive_string(camqp_context* context, camqp_type type,	const camqp_char* value);	// STRING, SYMBOL, CHAR
 camqp_primitive*	camqp_primitive_binary(camqp_context* context,					camqp_data* value);			// BINARY
+camqp_primitive*	camqp_primitive_uuid(camqp_context* context);												// UUID
 
 bool				camqp_value_bool(camqp_primitive* element);		// BOOL
 int64_t				camqp_value_int(camqp_primitive* element);		// BYTE, SHORT, INT, LONG, TIMESTAMP
 uint64_t			camqp_value_uint(camqp_primitive* element);		// UBYTE, USHORT, UINT, ULONG
 float				camqp_value_float(camqp_primitive* element);	// DECIMAL32, FLOAT
 double				camqp_value_double(camqp_primitive* element);	// DECIMAL64, DOUBLE
-const camqp_char*	camqp_value_string(camqp_primitive* element);	// STRING, SYMBOL, CHAR, UUID
+const camqp_char*	camqp_value_string(camqp_primitive* element);	// STRING, SYMBOL, CHAR
 camqp_data*			camqp_value_binary(camqp_primitive* element);	// BINARY
+const camqp_uuid*	camqp_value_uuid(camqp_primitive* element);		// UUID
 // ---
 
 /// camqp_vector
@@ -226,6 +233,12 @@ void			camqp_encode_primitive_null(camqp_data** buffer);
 void			camqp_encode_primitive_bool(camqp_primitive* primitive, camqp_data** buffer);
 void			camqp_encode_primitive_uint(camqp_primitive* element, camqp_data** buffer);
 void			camqp_encode_primitive_int(camqp_primitive* element, camqp_data** buffer);
+void			camqp_encode_primitive_float(camqp_primitive* element, camqp_data** buffer);
+void			camqp_encode_primitive_double(camqp_primitive* element, camqp_data** buffer);
+void			camqp_encode_primitive_string(camqp_primitive* element, camqp_data** buffer);
+void			camqp_encode_primitive_uuid(camqp_primitive* element, camqp_data** buffer);
+void			camqp_encode_primitive_binary(camqp_primitive* element, camqp_data** buffer);
+void			camqp_encode_vector(camqp_vector* element, camqp_data** buffer);
 
 camqp_element*	camqp_element_decode(camqp_context* context, camqp_data* binary);
 camqp_element*	camqp_query(camqp_context* context, const camqp_char* query, camqp_data* binary);

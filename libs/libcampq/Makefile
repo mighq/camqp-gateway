@@ -9,7 +9,8 @@ INCLUDES=\
 
 LIBS=\
 	-L/usr/lib	\
-	-lxml2
+	-lxml2		\
+	-luuid
 
 # environment
 CC=gcc
@@ -32,7 +33,7 @@ ${TARGET}: ${OBJS} | ${DIR_DONE}
 	${LD} ${LFLAGS} -shared -soname ${TARGET_LIB} -o ${TARGET} ${OBJS} ${LIBS}
 
 ${TEST}: ${TARGET} | ${DIR_DONE}
-	${CC} ${CFLAGS} -I. -I/usr/include/libxml2 -L${DIR_DONE} -lcamqp -L/usr/lib -lxml2 -o $@ test.c
+	${CC} ${CFLAGS} -I. -I/usr/include/libxml2 -L${DIR_DONE} -lcamqp -L/usr/lib -lxml2 -luuid -o $@ test.c
 
 ${DIR_OBJ}/%.o: %.c | ${DIR_OBJ}
 	${CC} ${CFLAGS} ${INCLUDES} -o $@ -c $<
