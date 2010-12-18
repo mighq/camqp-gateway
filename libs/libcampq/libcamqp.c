@@ -24,6 +24,7 @@ uint64_t twos_complement(int64_t nr) {
 }
 
 // TODO: vector a scalar odvodit od primitive
+// TODO u vekturu urcit typ MAP/LIST, do listu neprijat nenumericke keys
 
 /// utils
 
@@ -96,6 +97,23 @@ camqp_char* camqp_data_dump(camqp_data* data) {
 		return NULL;
 
 	return (camqp_char*) dump_data(data->bytes, data->size);
+}
+
+bool camqp_is_numeric(const camqp_char* string) {
+	if (string == NULL)
+		return false;
+
+	bool ret = true;
+	camqp_char* p = (camqp_char*) string;
+	while (*p != 0x00) {
+		if (*p < 0x30 || *p > 0x39) {
+			ret = false;
+			break;
+		}
+		p++;
+	}
+
+	return ret;
 }
 // ---
 
@@ -1059,11 +1077,32 @@ void camqp_encode_primitive(camqp_primitive* element, camqp_data** buffer) {
 		}
 	} else if (element->base.multiple == CAMQP_MULTIPLICITY_VECTOR) {
 		camqp_encode_vector((camqp_vector*) element, buffer);
-		// TODO
 	}
 }
 
-void camqp_encode_vector(camqp_vector* element, camqp_data** buffer) {
+void camqp_encode_vector(camqp_vector* set, camqp_data** buffer) {
+	// for empty array return NULL element
+	if (set->data == NULL) {
+		camqp_encode_primitive_null(buffer);
+		return;
+	}
+
+	// determine if keys are numeric
+	bool numeric = true;
+	camqp_vector_item* item = set->data;
+	while (item != NULL) {
+		if (!camqp_is_numeric(item->key)) {
+			numeric = false;
+			break;
+		}
+		item = item->next;
+	}
+
+	// different types of encoding
+	if (numeric)
+		camqp_encode_list(set, buffer);
+	else
+		camqp_encode_map(set, buffer);
 }
 
 /// null
@@ -1430,6 +1469,122 @@ void camqp_encode_primitive_binary(camqp_primitive* element, camqp_data** buffer
 	return;
 }
 // ---
+
+void camqp_encode_list(camqp_vector* set, camqp_data** buffer) {
+	
+}
+
+void camqp_encode_map(camqp_vector* set, camqp_data** buffer) {
+	uint32_t count = 0;
+
+	camqp_vector_item* i = set->data;
+	while (i != NULL) {
+		count++;
+		i = i->next;
+	}
+
+	camqp_data** enc_keys = (camqp_data**) camqp_util_new(count*sizeof(camqp_data*));
+	if (!enc_keys)
+		return;
+
+	camqp_data** enc_values = camqp_util_new(count*sizeof(camqp_data*));
+	if (!enc_values) {
+		camqp_util_free(enc_keys);
+		return;
+	}
+
+	// create encoded representation of map data
+	camqp_vector_item* k = set->data;
+	for (
+		uint32_t j = 0
+			;
+		j < count && k != NULL
+			;
+		j++,
+		k = k->next
+	) {
+		// encode key
+		camqp_primitive* pt_key = camqp_primitive_string(set->base.context, CAMQP_TYPE_STRING, k->key);
+		enc_keys[j] = camqp_element_encode((camqp_element*) pt_key);
+		camqp_primitive_free(pt_key);
+
+		// encode element
+		enc_values[j] = camqp_element_encode(k->value);
+	}
+
+	// count encoded items
+	uint32_t e_count = 2*count; // keys & values
+	uint32_t e_len = 0;
+
+	for (uint32_t x = 0; x < count; x++) {
+		e_len += enc_keys[x]->size;
+		e_len += enc_values[x]->size;
+	}
+
+	uint8_t code;
+	uint32_t f_len = 0;
+	uint32_t t_len = e_len + 4; // count size
+	if (t_len <= 0xFF) {
+		code = 0xC0; // list8
+		f_len = 1 + 1 + 1 + e_len;
+	} else {
+		code = 0xD0; // list32
+		f_len = 1 + 4 + 4 + e_len;
+	}
+
+	// allocate working data
+	camqp_byte* wk = camqp_util_new(f_len*sizeof(camqp_byte));
+	if (!wk) {
+		// cleanup
+		for (uint32_t j = 0; j < count; j++) {
+			camqp_data_free(enc_keys[j]);
+			camqp_data_free(enc_values[j]);
+		}
+
+		camqp_util_free(enc_keys);
+		camqp_util_free(enc_values);
+		return;
+	}
+
+	camqp_byte* content = NULL;
+	memcpy(wk, &code, 1);
+	if (t_len <= 0xFF) {
+		uint8_t len = e_len + 1;
+		memcpy(wk+1, &len, 1);
+		memcpy(wk+2, &e_count, 1);
+		content = wk+3;
+	} else {
+		uint32_t len_conv = htonl((e_len + 4));
+		memcpy(wk+1, &len_conv, 4);
+		uint32_t cnt_conv = htonl(e_count);
+		memcpy(wk+5, &cnt_conv, 4);
+		content = wk+9;
+	}
+
+	for (uint32_t x = 0; x < count; x++) {
+		memcpy(content, enc_keys[x]->bytes, enc_keys[x]->size);
+		content += enc_keys[x]->size;
+
+		memcpy(content, enc_values[x]->bytes, enc_values[x]->size);
+		content += enc_values[x]->size;
+	}
+
+	// cleanup
+	for (uint32_t j = 0; j < count; j++) {
+		camqp_data_free(enc_keys[j]);
+		camqp_data_free(enc_values[j]);
+	}
+
+	camqp_util_free(enc_keys);
+	camqp_util_free(enc_values);
+
+	// copy working data to camqp_data structure
+	camqp_data* data = camqp_data_new(wk, f_len);
+	// free working data
+	camqp_util_free(wk);
+	// set the result
+	*buffer = data;
+}
 
 // ---
 

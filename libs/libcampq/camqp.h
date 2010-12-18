@@ -65,6 +65,8 @@ typedef uuid_t		camqp_uuid;
 void* camqp_util_new(camqp_size size);
 void camqp_util_free(void* data);
 
+bool camqp_is_numeric(const camqp_char* string);
+
 /// types
 
 /// camqp_data
@@ -238,7 +240,11 @@ void			camqp_encode_primitive_double(camqp_primitive* element, camqp_data** buff
 void			camqp_encode_primitive_string(camqp_primitive* element, camqp_data** buffer);
 void			camqp_encode_primitive_uuid(camqp_primitive* element, camqp_data** buffer);
 void			camqp_encode_primitive_binary(camqp_primitive* element, camqp_data** buffer);
-void			camqp_encode_vector(camqp_vector* element, camqp_data** buffer);
+
+void			camqp_encode_vector(camqp_vector* set, camqp_data** buffer);
+void			camqp_encode_list(camqp_vector* set, camqp_data** buffer);
+void			camqp_encode_map(camqp_vector* set, camqp_data** buffer);
+
 
 camqp_element*	camqp_element_decode(camqp_context* context, camqp_data* binary);
 camqp_element*	camqp_query(camqp_context* context, const camqp_char* query, camqp_data* binary);

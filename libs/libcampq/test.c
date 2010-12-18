@@ -379,6 +379,31 @@ int main(int argc, char* argv[]) {
 		camqp_element_free((camqp_element*) pt);
 	}
 
+	// map
+	{
+		camqp_primitive* pt1 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 418);
+		camqp_primitive* pt2 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 325);
+		camqp_primitive* pt3 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 65);
+
+		camqp_vector* vec = camqp_vector_new(ctx1);
+		camqp_vector_item_put(vec, (camqp_char*) "item_1", (camqp_element*) pt1);
+		camqp_vector_item_put(vec, (camqp_char*) "item_2", (camqp_element*) pt2);
+		camqp_vector_item_put(vec, (camqp_char*) "item_3", (camqp_element*) pt3);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) vec);
+		if (enc) {
+			camqp_char* dump = camqp_data_dump(enc);
+			printf("%s\n", dump);
+			camqp_util_free(dump);
+
+			camqp_data_free(enc);
+		} else {
+			puts("ERROR!");
+		}
+
+		camqp_vector_free(vec, true);
+	}
+
 	// ---
 
 	camqp_context_free(ctx1);
