@@ -137,12 +137,15 @@ int main(int argc, char* argv[]) {
 	}
 
 	camqp_scalar* pt13 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 325);
-	camqp_composite_field_put(comp1, (camqp_char*) "cislo", (camqp_element*) pt13);
-
+	if (camqp_composite_field_put(comp1, (camqp_char*) "cislo", (camqp_element*) pt13))
 	{
 		camqp_element* el2 = camqp_composite_field_get(comp1, (camqp_char*) "cislo");
-		uint64_t y = camqp_value_uint((camqp_element*) el2);
-		printf("field 'cislo': 325=%d?\n", (int) y);
+		if (el2) {
+			uint64_t y = camqp_value_uint((camqp_element*) el2);
+			printf("field 'cislo': 325=%d?\n", (int) y);
+		}
+	} else {
+		camqp_element_free((camqp_element*) pt13);
 	}
 
 	camqp_element_free((camqp_element*) comp1);
@@ -430,6 +433,41 @@ int main(int argc, char* argv[]) {
 		}
 
 		camqp_element_free((camqp_element*) vec);
+	}
+
+	// composite
+	{
+		camqp_composite* comp = camqp_composite_new(ctx1, (camqp_char*) "response", 2);
+		if (comp) {
+			camqp_composite_field_put(
+				comp,
+				(camqp_char*) "id",
+				(camqp_element*) camqp_scalar_uuid(ctx1)
+			);
+			camqp_composite_field_put(
+				comp,
+				(camqp_char*) "correlation",
+				(camqp_element*) camqp_scalar_uuid(ctx1)
+			);
+			camqp_data dt = camqp_data_static((camqp_byte*) "XYZ", 3);
+			camqp_composite_field_put(
+				comp,
+				(camqp_char*) "content",
+				(camqp_element*) camqp_scalar_binary(ctx1, &dt)
+			);
+
+			camqp_data* enc = camqp_element_encode((camqp_element*) comp);
+			if (enc) {
+				camqp_char* dump = camqp_data_dump(enc);
+				printf("%s\n", dump);
+				camqp_util_free(dump);
+				camqp_data_free(enc);
+			} else {
+				puts("ERROR encoding!");
+			}
+
+			camqp_element_free((camqp_element*) comp);
+		}
 	}
 
 	// ---

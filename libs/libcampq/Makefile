@@ -1,7 +1,13 @@
 TARGET_LIB=libcamqp.so
 TEST_BIN=test
 SOURCES=\
-	libcamqp.c	\
+	utils.c		\
+	data.c		\
+	context.c	\
+	elements.c	\
+	scalar.c	\
+	vector.c	\
+	composite.c	\
 	encoding.c
 
 # dependencies

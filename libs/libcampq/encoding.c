@@ -671,5 +671,143 @@ void camqp_encode_map(camqp_vector* set, camqp_data** buffer) {
 
 /// composite
 void camqp_encode_composite(camqp_composite* element, camqp_data** buffer) {
+	// relative xpath query for field elements
+	xmlNodePtr backup = element->base.context->xpath->node;
+	element->base.context->xpath->node = element->type_def;
+	xmlXPathObjectPtr xp = xmlXPathEvalExpression((xmlChar*) "./amqp:field", element->base.context->xpath);
+	element->base.context->xpath->node = backup;
+
+	// treat count of elements
+	uint32_t count = xp->nodesetval->nodeNr;
+	if (count == 0) {
+		camqp_encode_null(buffer);
+		xmlXPathFreeObject(xp);
+	}
+
+	// create new vector for type representation
+	camqp_data** enc_values = camqp_util_new(count*sizeof(camqp_data*));
+	if (!enc_values) {
+		xmlXPathFreeObject(xp);
+		return;
+	}
+
+	// we will use this
+	camqp_element* el_null = (camqp_element*) camqp_primitive_null(element->base.context);
+
+	// for each field
+	for (uint32_t i = 0; i < count; i++) {
+		xmlNodePtr node = xp->nodesetval->nodeTab[i];
+
+		// get field name
+		xmlChar* fname = xmlGetProp(node, (xmlChar*) "name");
+
+		// get field data from composite
+		camqp_element* actual_element = camqp_composite_field_get(element, (camqp_char*) fname);
+
+		xmlFree(fname);
+
+		// missing fields check
+		if (actual_element == NULL) {
+			// check if it can be missing, because it is
+			xmlChar* mandatory = xmlGetProp(node, (xmlChar*) "mandatory");
+			if (xmlStrcmp(mandatory, (xmlChar*) "true") == 0) {
+				// can't be missing
+				xmlFree(mandatory);
+				xmlXPathFreeObject(xp);
+
+				for (uint32_t j = 0; j < count; j++)
+					camqp_data_free(enc_values[j]);
+				camqp_util_free(enc_values);
+
+				camqp_element_free(el_null);
+
+				return;
+			}
+			xmlFree(mandatory);
+
+			// can be missing, use NULL element
+			actual_element = el_null;
+		}
+
+		// encode element
+		enc_values[i] = camqp_element_encode(actual_element);
+	}
+
+	// free xpath
+	xmlXPathFreeObject(xp);
+
+	// no need anymore
+	camqp_element_free(el_null);
+
+	// count total size of encoded items
+	uint32_t e_len = 0;
+	for (uint32_t i = 0; i < count; i++)
+		e_len += enc_values[i]->size;
+
+	uint8_t e_code; // encoding code
+	uint32_t t_code = htonl(element->code); // type code
+	uint32_t f_len; // full length
+
+	uint32_t t_len = e_len + 4; // length of list encoded (4 for count)
+	if (t_len <= 0xFF) {
+		// list8
+		f_len = 1 + 1 + 4 + 1 + 1 + 1 + e_len;
+		e_code = 0xC0;
+	} else {
+		// list32
+		f_len = 1 + 1 + 4 + 1 + 4 + 4 + e_len;
+		e_code = 0xD0;
+	}
+
+	// allocate working data
+	camqp_byte* wk = camqp_util_new(f_len*sizeof(camqp_byte));
+	if (!wk) {
+		// cleanup
+		for (uint32_t j = 0; j < count; j++)
+			camqp_data_free(enc_values[j]);
+		camqp_util_free(enc_values);
+		return;
+	}
+
+	// setup data
+	memset(wk,   0x00, 1); // composite type
+	memset(wk+1, 0x70, 1); // uint descriptor
+	memcpy(wk+2, (void*) &t_code, 4); // type code
+	memcpy(wk+6, (void*) &e_code, 1); // list encoding
+
+	camqp_byte* start_1 = wk + 7;
+	camqp_byte* start_2;
+	if (t_len <= 0xFF) {
+		// list8
+		uint8_t x_len = e_len + 1;
+		uint8_t y_len = count;
+		memcpy(start_1, (void*) &x_len, 1);
+		memcpy(start_1+1, (void*) &y_len, 1);
+		start_2 = start_1+2;
+	} else {
+		// list32
+		uint32_t x_len = htonl(e_len + 4);
+		uint32_t y_len = htonl(count);
+		memcpy(start_1, (void*) &x_len, 4);
+		memcpy(start_1+4, (void*) &y_len, 4);
+		start_2 = start_1+8;
+	}
+
+	for (uint32_t j = 0; j < count; j++) {
+		memcpy(start_2, enc_values[j]->bytes, enc_values[j]->size);
+		start_2 += enc_values[j]->size;
+	}
+
+	// cleanup
+	for (uint32_t j = 0; j < count; j++)
+		camqp_data_free(enc_values[j]);
+	camqp_util_free(enc_values);
+
+	// copy working data to camqp_data structure
+	camqp_data* data = camqp_data_new(wk, f_len);
+	// free working data
+	camqp_util_free(wk);
+	// set the result
+	*buffer = data;
 }
 // ---

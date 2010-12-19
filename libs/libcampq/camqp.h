@@ -71,7 +71,6 @@ typedef uint32_t	camqp_code;
 typedef uuid_t		camqp_uuid;
 // ---
 
-
 /// types
 
 /// camqp_data
@@ -220,12 +219,14 @@ typedef struct {
 	camqp_char*			name;
 	camqp_code			code;
 
+	xmlNodePtr			type_def;
+
 	camqp_vector_item*	fields;
 } camqp_composite;
 
 camqp_composite*	camqp_composite_new(camqp_context* context, const camqp_char* type_name, camqp_code type_code);
 
-void				camqp_composite_field_put(camqp_composite* element, const camqp_char* key, camqp_element* item);
+bool				camqp_composite_field_put(camqp_composite* element, const camqp_char* key, camqp_element* item);
 camqp_element*		camqp_composite_field_get(camqp_composite* element, const camqp_char* key);
 // ---
 

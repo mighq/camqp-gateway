@@ -30,6 +30,10 @@ camqp_vector_item*	camqp_vector_item_new(const camqp_char* key, camqp_element* v
 void				camqp_vector_item_free(camqp_vector_item* item, bool free_value);
 // ---
 
+/// types
+camqp_char*			camqp_element_type_name(camqp_element* element);
+// ---
+
 /// encoding
 void			camqp_encode_primitive(camqp_primitive* element, camqp_data** buffer);
 
