@@ -1,4 +1,5 @@
-#include <camqp.h>
+#include "camqp.h"
+#include "internals.h"
 
 #include <string.h> // memset, memcpy
 
@@ -6,25 +7,6 @@
 #include <libxml/parser.h>
 #include <libxml/xinclude.h>
 #include <libxml/xpathInternals.h>
-
-#include <netinet/in.h>
-
-// TODO: what about other platforms?
-#define ntohll(x) ( ( (uint64_t)(ntohl( (uint32_t)((x << 32) >> 32) )) << 32) | ntohl( ((uint32_t)(x >> 32)) ) )
-#define htonll(x) ntohll(x)
-
-uint64_t twos_complement(int64_t nr) {
-	// positive
-	if (nr >= 0)
-		return nr;
-
-	// negative
-	uint64_t nu = llabs(nr) ^ 0xFFFFFFFFFFFFFFFF;
-	return nu + 0x01;
-}
-
-// TODO: vector a scalar odvodit od primitive
-// TODO u vekturu urcit typ MAP/LIST, do listu neprijat nenumericke keys
 
 /// utils
 
@@ -114,6 +96,16 @@ bool camqp_is_numeric(const camqp_char* string) {
 	}
 
 	return ret;
+}
+
+uint64_t twos_complement(int64_t nr) {
+	// positive
+	if (nr >= 0)
+		return nr;
+
+	// negative
+	uint64_t nu = llabs(nr) ^ 0xFFFFFFFFFFFFFFFF;
+	return nu + 0x01;
 }
 // ---
 
@@ -245,7 +237,6 @@ void camqp_context_free(camqp_context* context) {
 // ---
 
 /// camqp_element
-
 void camqp_element_free(camqp_element* element) {
 	if (element == NULL)
 		return;
@@ -257,103 +248,134 @@ void camqp_element_free(camqp_element* element) {
 	}
 }
 
-camqp_primitive* camqp_primitive_null(camqp_context* context) {
-	camqp_primitive* tp = camqp_primitive_new(context);
-	if (!tp)
-		return NULL;
-
-	tp->type = CAMQP_TYPE_NULL;
-
-	return tp;
+/// subclass detection
+bool camqp_element_is_primitive(camqp_element* element) {
+	return element->class == CAMQP_CLASS_PRIMITIVE;
 }
 
 bool camqp_element_is_null(camqp_element* element) {
-	if (element->class == CAMQP_CLASS_PRIMITIVE && element->multiple == CAMQP_MULTIPLICITY_SCALAR) {
-		camqp_primitive* primitive = (camqp_primitive*) element;
-		return (primitive->type == CAMQP_TYPE_NULL);
-	}
+	if (!camqp_element_is_primitive(element))
+		return false;
 
-	return false;
+	camqp_primitive* primitive = (camqp_primitive*) element;
+	return primitive->type == CAMQP_TYPE_NULL;
 }
+
+bool camqp_element_is_scalar(camqp_element* element) {
+	if (!camqp_element_is_primitive(element))
+		return false;
+
+	camqp_primitive* primitive = (camqp_primitive*) element;
+	return primitive->multiple == CAMQP_MULTIPLICITY_SCALAR;
+}
+
+bool camqp_element_is_vector(camqp_element* element) {
+	if (!camqp_element_is_primitive(element))
+		return false;
+
+	camqp_primitive* primitive = (camqp_primitive*) element;
+	return primitive->multiple == CAMQP_MULTIPLICITY_VECTOR;
+}
+
+bool camqp_element_is_composite(camqp_element* element) {
+	return element->class == CAMQP_CLASS_COMPOSITE;
+}
+// ---
 
 // ---
 
 /// camqp_primitive
-camqp_primitive* camqp_primitive_new(camqp_context* context) {
+void camqp_primitive_free(camqp_primitive* element) {
+	if (element == NULL)
+		return;
+
+	if (element->multiple == CAMQP_MULTIPLICITY_SCALAR) {
+		camqp_scalar_free((camqp_scalar*) element);
+	} else if (element->multiple == CAMQP_MULTIPLICITY_VECTOR) {
+		camqp_vector_free((camqp_vector*) element, true);
+	}
+}
+
+/// null
+camqp_primitive* camqp_primitive_null(camqp_context* context) {
 	camqp_primitive* ret = camqp_util_new(sizeof(camqp_primitive));
 	if (!ret)
 		return NULL;
 
 	ret->base.context = context;
 	ret->base.class = CAMQP_CLASS_PRIMITIVE;
+	ret->multiple = CAMQP_MULTIPLICITY_SCALAR;
+	ret->type = CAMQP_TYPE_NULL;
+
+	return ret;
+}
+// ---
+
+// ---
+
+/// camqp_scalar
+
+/// new & free
+camqp_scalar* camqp_scalar_new(camqp_context* context, camqp_type type) {
+	camqp_scalar* ret = camqp_util_new(sizeof(camqp_scalar));
+	if (!ret)
+		return NULL;
+
+	ret->base.base.context = context;
+	ret->base.base.class = CAMQP_CLASS_PRIMITIVE;
 	ret->base.multiple = CAMQP_MULTIPLICITY_SCALAR;
+	ret->base.type = type;
 
 	return ret;
 }
 
-void camqp_primitive_free(camqp_primitive* element) {
-	if (element == NULL)
-		return;
+void camqp_scalar_free(camqp_scalar* scalar) {
+	// for dynamic elements free data memory
+	if (
+		scalar->base.type == CAMQP_TYPE_STRING
+			||
+		scalar->base.type == CAMQP_TYPE_CHAR
+			||
+		scalar->base.type == CAMQP_TYPE_SYMBOL
+	)
+		camqp_util_free(scalar->data.str);
 
-	if (element->base.multiple == CAMQP_MULTIPLICITY_SCALAR) {
-		// for dynamic elements free data memory
-		if (
-			element->type == CAMQP_TYPE_STRING
-				||
-			element->type == CAMQP_TYPE_CHAR
-				||
-			element->type == CAMQP_TYPE_SYMBOL
-		)
-			camqp_util_free(element->data.str);
+	if (scalar->base.type == CAMQP_TYPE_BINARY)
+		camqp_data_free(scalar->data.bin);
 
-		if (element->type == CAMQP_TYPE_BINARY)
-			camqp_data_free(element->data.bin);
-
-		// free element
-		camqp_util_free(element);
-	} else if (element->base.multiple == CAMQP_MULTIPLICITY_VECTOR) {
-		camqp_vector_free((camqp_vector*) element, true);
-	}
+	// free element
+	camqp_util_free(scalar);
 }
-
-bool camqp_element_is_primitive(camqp_element* element) {
-	return element->class == CAMQP_CLASS_PRIMITIVE;
-}
-
-bool camqp_element_is_scalar(camqp_element* element) {
-	return element->multiple == CAMQP_MULTIPLICITY_SCALAR;
-}
+// ---
 
 /// bool
-camqp_primitive* camqp_primitive_bool(camqp_context* context, bool value) {
-	camqp_primitive* tp = camqp_primitive_new(context);
+camqp_scalar* camqp_scalar_bool(camqp_context* context, bool value) {
+	camqp_scalar* tp = camqp_scalar_new(context, CAMQP_TYPE_BOOLEAN);
 	if (!tp)
 		return NULL;
 
-	tp->type = CAMQP_TYPE_BOOLEAN;
 	tp->data.b = value;
 
 	return tp;
 }
 
-bool camqp_value_bool(camqp_primitive* element) {
-	if (!camqp_element_is_primitive((camqp_element*) element))
+bool camqp_value_bool(camqp_element* element) {
+	if (!camqp_element_is_scalar(element))
 		return false;
 
-	if (!camqp_element_is_scalar((camqp_element*) element))
+	camqp_scalar* scalar = (camqp_scalar*) element;
+
+	if (scalar->base.type != CAMQP_TYPE_BOOLEAN)
 		return false;
 
-	if (element->type != CAMQP_TYPE_BOOLEAN)
-		return false;
-
-	return element->data.b;
+	return scalar->data.b;
 }
 // ---
 
 /// int
 
 // BYTE, SHORT, INT, LONG, TIMESTAMP
-camqp_primitive* camqp_primitive_int(camqp_context* context, camqp_type type, int64_t value) {
+camqp_scalar* camqp_scalar_int(camqp_context* context, camqp_type type, int64_t value) {
 	if (
 		type != CAMQP_TYPE_BYTE
 			&&
@@ -367,44 +389,42 @@ camqp_primitive* camqp_primitive_int(camqp_context* context, camqp_type type, in
 	)
 		return NULL;
 
-	camqp_primitive* tp = camqp_primitive_new(context);
+	camqp_scalar* tp = camqp_scalar_new(context, type);
 	if (!tp)
 		return NULL;
 
-	tp->type = type;
 	tp->data.i = value;
 
 	return tp;
 }
 
-int64_t camqp_value_int(camqp_primitive* element) {
-	if (!camqp_element_is_primitive((camqp_element*) element))
+int64_t camqp_value_int(camqp_element* element) {
+	if (!camqp_element_is_scalar(element))
 		return 0;
 
-	if (!camqp_element_is_scalar((camqp_element*) element))
-		return 0;
+	camqp_scalar* scalar = (camqp_scalar*) element;
 
 	if (
-		element->type != CAMQP_TYPE_BYTE
+		scalar->base.type != CAMQP_TYPE_BYTE
 			&&
-		element->type != CAMQP_TYPE_SHORT
+		scalar->base.type != CAMQP_TYPE_SHORT
 			&&
-		element->type != CAMQP_TYPE_INT
+		scalar->base.type != CAMQP_TYPE_INT
 			&&
-		element->type != CAMQP_TYPE_LONG
+		scalar->base.type != CAMQP_TYPE_LONG
 			&&
-		element->type != CAMQP_TYPE_TIMESTAMP
+		scalar->base.type != CAMQP_TYPE_TIMESTAMP
 	)
 		return 0;
 
-	return element->data.i;
+	return scalar->data.i;
 }
 // ---
 
 /// uint
 
 // UBYTE, USHORT, UINT, ULONG
-camqp_primitive* camqp_primitive_uint(camqp_context* context, camqp_type type, uint64_t value) {
+camqp_scalar* camqp_scalar_uint(camqp_context* context, camqp_type type, uint64_t value) {
 	if (
 		type != CAMQP_TYPE_UBYTE
 			&&
@@ -416,42 +436,40 @@ camqp_primitive* camqp_primitive_uint(camqp_context* context, camqp_type type, u
 	)
 		return NULL;
 
-	camqp_primitive* tp = camqp_primitive_new(context);
+	camqp_scalar* tp = camqp_scalar_new(context, type);
 	if (!tp)
 		return NULL;
 
-	tp->type = type;
 	tp->data.ui = value;
 
 	return tp;
 }
 
-uint64_t camqp_value_uint(camqp_primitive* element) {
-	if (!camqp_element_is_primitive((camqp_element*) element))
+uint64_t camqp_value_uint(camqp_element* element) {
+	if (!camqp_element_is_scalar(element))
 		return 0;
 
-	if (!camqp_element_is_scalar((camqp_element*) element))
-		return 0;
+	camqp_scalar* scalar = (camqp_scalar*) element;
 
 	if (
-		element->type != CAMQP_TYPE_UBYTE
+		scalar->base.type != CAMQP_TYPE_UBYTE
 			&&
-		element->type != CAMQP_TYPE_USHORT
+		scalar->base.type != CAMQP_TYPE_USHORT
 			&&
-		element->type != CAMQP_TYPE_UINT
+		scalar->base.type != CAMQP_TYPE_UINT
 			&&
-		element->type != CAMQP_TYPE_ULONG
+		scalar->base.type != CAMQP_TYPE_ULONG
 	)
 		return 0;
 
-	return element->data.ui;
+	return scalar->data.ui;
 }
 // ---
 
 /// float
 
 // DECIMAL32, FLOAT
-camqp_primitive* camqp_primitive_float(camqp_context* context, camqp_type type, float value) {
+camqp_scalar* camqp_scalar_float(camqp_context* context, camqp_type type, float value) {
 	if (
 		type != CAMQP_TYPE_DECIMAL32
 			&&
@@ -459,38 +477,36 @@ camqp_primitive* camqp_primitive_float(camqp_context* context, camqp_type type, 
 	)
 		return NULL;
 
-	camqp_primitive* tp = camqp_primitive_new(context);
+	camqp_scalar* tp = camqp_scalar_new(context, type);
 	if (!tp)
 		return NULL;
 
-	tp->type = type;
 	tp->data.f = value;
 
 	return tp;
 }
 
-float camqp_value_float(camqp_primitive* element) {
-	if (!camqp_element_is_primitive((camqp_element*) element))
+float camqp_value_float(camqp_element* element) {
+	if (!camqp_element_is_scalar(element))
 		return 0;
 
-	if (!camqp_element_is_scalar((camqp_element*) element))
-		return 0;
+	camqp_scalar* scalar = (camqp_scalar*) element;
 
 	if (
-		element->type != CAMQP_TYPE_FLOAT
+		scalar->base.type != CAMQP_TYPE_FLOAT
 			&&
-		element->type != CAMQP_TYPE_DECIMAL32
+		scalar->base.type != CAMQP_TYPE_DECIMAL32
 	)
 		return 0;
 
-	return element->data.f;
+	return scalar->data.f;
 }
 // ---
 
 /// double
 
 // DECIMAL64, DOUBLE
-camqp_primitive* camqp_primitive_double(camqp_context* context, camqp_type type, double value) {
+camqp_scalar* camqp_scalar_double(camqp_context* context, camqp_type type, double value) {
 	if (
 		type != CAMQP_TYPE_DECIMAL64
 			&&
@@ -498,38 +514,36 @@ camqp_primitive* camqp_primitive_double(camqp_context* context, camqp_type type,
 	)
 		return NULL;
 
-	camqp_primitive* tp = camqp_primitive_new(context);
+	camqp_scalar* tp = camqp_scalar_new(context, type);
 	if (!tp)
 		return NULL;
 
-	tp->type = type;
 	tp->data.d = value;
 
 	return tp;
 }
 
-double camqp_value_double(camqp_primitive* element) {
-	if (!camqp_element_is_primitive((camqp_element*) element))
+double camqp_value_double(camqp_element* element) {
+	if (!camqp_element_is_scalar(element))
 		return 0;
 
-	if (!camqp_element_is_scalar((camqp_element*) element))
-		return 0;
+	camqp_scalar* scalar = (camqp_scalar*) element;
 
 	if (
-		element->type != CAMQP_TYPE_DOUBLE
+		scalar->base.type != CAMQP_TYPE_DOUBLE
 			&&
-		element->type != CAMQP_TYPE_DECIMAL64
+		scalar->base.type != CAMQP_TYPE_DECIMAL64
 	)
 		return 0;
 
-	return element->data.d;
+	return scalar->data.d;
 }
 // ---
 
 /// string
 
 // STRING, SYMBOL, CHAR, UUID
-camqp_primitive* camqp_primitive_string(camqp_context* context, camqp_type type, const camqp_char* value) {
+camqp_scalar* camqp_scalar_string(camqp_context* context, camqp_type type, const camqp_char* value) {
 	if (
 		type != CAMQP_TYPE_STRING
 			&&
@@ -553,11 +567,10 @@ camqp_primitive* camqp_primitive_string(camqp_context* context, camqp_type type,
 		// TODO check, ze to je platny utf-8
 	}
 
-	camqp_primitive* tp = camqp_primitive_new(context);
+	camqp_scalar* tp = camqp_scalar_new(context, type);
 	if (!tp)
 		return NULL;
 
-	tp->type = type;
 	tp->data.str = xmlStrdup(value);
 	if (!tp->data.str) {
 		camqp_util_free(tp);
@@ -567,82 +580,112 @@ camqp_primitive* camqp_primitive_string(camqp_context* context, camqp_type type,
 	return tp;
 }
 
-const camqp_char* camqp_value_string(camqp_primitive* element) {
-	if (!camqp_element_is_primitive((camqp_element*) element))
+const camqp_char* camqp_value_string(camqp_element* element) {
+	if (!camqp_element_is_scalar(element))
 		return NULL;
 
-	if (!camqp_element_is_scalar((camqp_element*) element))
-		return NULL;
+	camqp_scalar* scalar = (camqp_scalar*) element;
 
 	if (
-		element->type != CAMQP_TYPE_STRING
+		scalar->base.type != CAMQP_TYPE_STRING
 			&&
-		element->type != CAMQP_TYPE_SYMBOL
+		scalar->base.type != CAMQP_TYPE_SYMBOL
 			&&
-		element->type != CAMQP_TYPE_CHAR
+		scalar->base.type != CAMQP_TYPE_CHAR
 	)
 		return NULL;
 
-	return element->data.str;
+	return scalar->data.str;
 }
 // ---
 
 /// binary
-
-camqp_primitive* camqp_primitive_binary(camqp_context* context, camqp_data* value) {
-	camqp_primitive* tp = camqp_primitive_new(context);
+camqp_scalar* camqp_scalar_binary(camqp_context* context, camqp_data* value) {
+	camqp_scalar* tp = camqp_scalar_new(context, CAMQP_TYPE_BINARY);
 	if (!tp)
 		return NULL;
 
-	tp->type = CAMQP_TYPE_BINARY;
 	tp->data.bin = camqp_data_new(value->bytes, value->size);
 
 	return tp;
 }
 
-camqp_data* camqp_value_binary(camqp_primitive* element) {
-	if (!camqp_element_is_primitive((camqp_element*) element))
+camqp_data* camqp_value_binary(camqp_element* element) {
+	if (!camqp_element_is_scalar(element))
 		return NULL;
 
-	if (!camqp_element_is_scalar((camqp_element*) element))
+	camqp_scalar* scalar = (camqp_scalar*) element;
+
+	if (scalar->base.type != CAMQP_TYPE_BINARY)
 		return NULL;
 
-	if (element->type != CAMQP_TYPE_BINARY)
-		return NULL;
-
-	return element->data.bin;
+	return scalar->data.bin;
 }
 // ---
 
 /// uuid
-camqp_primitive* camqp_primitive_uuid(camqp_context* context) {
-	camqp_primitive* tp = camqp_primitive_new(context);
+camqp_scalar* camqp_scalar_uuid(camqp_context* context) {
+	camqp_scalar* tp = camqp_scalar_new(context, CAMQP_TYPE_UUID);
 	if (!tp)
 		return NULL;
 
-	tp->type = CAMQP_TYPE_UUID;
 	uuid_generate(tp->data.uid);
 
 	return tp;
 }
 
-const camqp_uuid* camqp_value_uuid(camqp_primitive* element) {
-	if (!camqp_element_is_primitive((camqp_element*) element))
+const camqp_uuid* camqp_value_uuid(camqp_element* element) {
+	if (!camqp_element_is_scalar(element))
 		return NULL;
 
-	if (!camqp_element_is_scalar((camqp_element*) element))
+	camqp_scalar* scalar = (camqp_scalar*) element;
+
+	if (scalar->base.type != CAMQP_TYPE_UUID)
 		return NULL;
 
-	if (element->type != CAMQP_TYPE_UUID)
-		return NULL;
-
-	return (const camqp_uuid*) &element->data.uid;
+	return (const camqp_uuid*) &scalar->data.uid;
 }
 // ---
 
 // ---
 
 /// camqp_vector
+
+/// new & free
+camqp_vector* camqp_vector_new(camqp_context* ctx) {
+	camqp_vector* vec = camqp_util_new(sizeof(camqp_vector));
+	if (!vec)
+		return NULL;
+
+	vec->base.base.context = ctx;
+	vec->base.base.class = CAMQP_CLASS_PRIMITIVE;
+
+	vec->base.multiple = CAMQP_MULTIPLICITY_VECTOR;
+	vec->base.type = CAMQP_TYPE_LIST; // will be changed to map if any non-numeric-key items are added
+
+	vec->data = NULL;
+
+	return vec;
+}
+
+void camqp_vector_free(camqp_vector* vector, bool free_values) {
+	if (vector == NULL)
+		return;
+
+	// delete all elements from vector
+	camqp_vector_item* to_del = vector->data;
+	while (to_del) {
+		camqp_vector_item* to_del_next = (camqp_vector_item*) to_del->next;
+		camqp_vector_item_free(to_del, free_values);
+		to_del = to_del_next;
+	}
+
+	// delete vector itself
+	camqp_util_free(vector);
+}
+// ---
+
+/// vector items
 camqp_vector_item* camqp_vector_item_new(const camqp_char* key, camqp_element* value) {
 	camqp_vector_item* itm = camqp_util_new(sizeof(camqp_vector_item));
 	if (!itm)
@@ -670,42 +713,21 @@ void camqp_vector_item_free(camqp_vector_item* item, bool free_value) {
 	camqp_util_free(item->key);
 	camqp_util_free(item);
 }
+// ---
 
-camqp_vector* camqp_vector_new(camqp_context* ctx) {
-	camqp_vector* vec = camqp_util_new(sizeof(camqp_vector));
-	if (!vec)
-		return NULL;
-
-	vec->base.context = ctx;
-
-	vec->base.class = CAMQP_CLASS_PRIMITIVE;
-	vec->base.multiple = CAMQP_MULTIPLICITY_VECTOR;
-
-	vec->data = NULL;
-
-	return vec;
-}
-
-void camqp_vector_free(camqp_vector* vector, bool free_values) {
-	if (vector == NULL)
-		return;
-
-	// delete all elements from vector
-	camqp_vector_item* to_del = vector->data;
-	while (to_del) {
-		camqp_vector_item* to_del_next = (camqp_vector_item*) to_del->next;
-		camqp_vector_item_free(to_del, free_values);
-		to_del = to_del_next;
-	}
-
-	// delete vector itself
-	camqp_util_free(vector);
-}
-
+/// camqp_vector_item_put
 void camqp_vector_item_put(camqp_vector* vector, const camqp_char* key, camqp_element* element) {
 	// check if contexts are matching
-	if (vector->base.context != element->context)
+	if (vector->base.base.context != element->context)
 		return;
+
+	// check that we are using correct AMQP_TYPE
+	if (vector->base.type == CAMQP_TYPE_LIST) {
+		// switch to CAMQP_TYPE_MAP for any non-numeric key
+		if (!camqp_is_numeric(key)) {
+			vector->base.type = CAMQP_TYPE_MAP;
+		}
+	}
 
 	// create new item
 	camqp_vector_item* el = camqp_vector_item_new(key, element);
@@ -780,7 +802,9 @@ void camqp_vector_item_put(camqp_vector* vector, const camqp_char* key, camqp_el
 		}
 	} while (true);
 }
+// ---
 
+/// camqp_vector_item_get
 camqp_element* camqp_vector_item_get(camqp_vector* vector, const camqp_char* key) {
 	camqp_element* ret = NULL;
 
@@ -797,10 +821,13 @@ camqp_element* camqp_vector_item_get(camqp_vector* vector, const camqp_char* key
 
 	return ret;
 }
+// ---
 
 // ---
 
 /// camqp_composite
+
+/// new & free
 /**
  *	one of type_name or type_code has to be specified
  *	if both, they must match
@@ -897,7 +924,6 @@ camqp_composite* camqp_composite_new(camqp_context* context, const camqp_char* t
 	comp->base.context = context;
 
 	comp->base.class = CAMQP_CLASS_COMPOSITE;
-	comp->base.multiple = CAMQP_MULTIPLICITY_SCALAR;
 
 	comp->name = real_name;
 	comp->code = real_code;
@@ -922,7 +948,9 @@ void camqp_composite_free(camqp_composite* element, bool free_values) {
 	camqp_util_free(element->name);
 	camqp_util_free(element);
 }
+// ---
 
+/// camqp_composite_field_put
 // TODO spolocny codebase s vektorom
 void camqp_composite_field_put(camqp_composite* element, const camqp_char* key, camqp_element* item) {
 	// check if contexts are matching
@@ -1002,7 +1030,9 @@ void camqp_composite_field_put(camqp_composite* element, const camqp_char* key, 
 		}
 	} while (true);
 }
+// ---
 
+/// camqp_composite_field_get
 // TODO spolocny codebase s vektorom
 camqp_element* camqp_composite_field_get(camqp_composite* element, const camqp_char* key) {
 	camqp_element* ret = NULL;
@@ -1020,571 +1050,7 @@ camqp_element* camqp_composite_field_get(camqp_composite* element, const camqp_c
 
 	return ret;
 }
-
 // ---
-
-/// encoding
-camqp_data* camqp_element_encode(camqp_element* element) {
-	camqp_data* encoded = NULL;
-
-	if (element->class == CAMQP_CLASS_PRIMITIVE)
-		camqp_encode_primitive((camqp_primitive*) element, &encoded);
-
-	return encoded;
-}
-
-void camqp_encode_primitive(camqp_primitive* element, camqp_data** buffer) {
-	if (element->base.multiple == CAMQP_MULTIPLICITY_SCALAR) {
-		switch (element->type) {
-			case CAMQP_TYPE_NULL:
-				camqp_encode_primitive_null(buffer);
-				break;
-			case CAMQP_TYPE_BOOLEAN:
-				camqp_encode_primitive_bool(element, buffer);
-				break;
-			case CAMQP_TYPE_UBYTE:
-			case CAMQP_TYPE_USHORT:
-			case CAMQP_TYPE_UINT:
-			case CAMQP_TYPE_ULONG:
-				camqp_encode_primitive_uint(element, buffer);
-				break;
-			case CAMQP_TYPE_BYTE:
-			case CAMQP_TYPE_SHORT:
-			case CAMQP_TYPE_INT:
-			case CAMQP_TYPE_LONG:
-			case CAMQP_TYPE_TIMESTAMP:
-				camqp_encode_primitive_int(element, buffer);
-				break;
-			case CAMQP_TYPE_FLOAT:
-			case CAMQP_TYPE_DECIMAL32:
-				camqp_encode_primitive_float(element, buffer);
-				break;
-			case CAMQP_TYPE_DOUBLE:
-			case CAMQP_TYPE_DECIMAL64:
-				camqp_encode_primitive_double(element, buffer);
-				break;
-			case CAMQP_TYPE_UUID:
-				camqp_encode_primitive_uuid(element, buffer);
-				break;
-			case CAMQP_TYPE_CHAR:
-			case CAMQP_TYPE_STRING:
-			case CAMQP_TYPE_SYMBOL:
-				camqp_encode_primitive_string(element, buffer);
-				break;
-			case CAMQP_TYPE_BINARY:
-				camqp_encode_primitive_binary(element, buffer);
-				break;
-		}
-	} else if (element->base.multiple == CAMQP_MULTIPLICITY_VECTOR) {
-		camqp_encode_vector((camqp_vector*) element, buffer);
-	}
-}
-
-void camqp_encode_vector(camqp_vector* set, camqp_data** buffer) {
-	// for empty array return NULL element
-	if (set->data == NULL) {
-		camqp_encode_primitive_null(buffer);
-		return;
-	}
-
-	// determine if keys are numeric
-	bool numeric = true;
-	camqp_vector_item* item = set->data;
-	while (item != NULL) {
-		if (!camqp_is_numeric(item->key)) {
-			numeric = false;
-			break;
-		}
-		item = item->next;
-	}
-
-	// different types of encoding
-	if (numeric)
-		camqp_encode_list(set, buffer);
-	else
-		camqp_encode_map(set, buffer);
-}
-
-/// null
-void camqp_encode_primitive_null(camqp_data** buffer) {
-	// allocate working data
-	camqp_byte* wk = camqp_util_new(1*sizeof(camqp_byte));
-	if (!wk)
-		return;
-
-	memcpy(wk, "\x40", 1);
-
-	// copy working data to camqp_data structure
-	camqp_data* data = camqp_data_new(wk, 1);
-	// free working data
-	camqp_util_free(wk);
-	// set the result
-	*buffer = data;
-}
-// ---
-
-/// bool
-void camqp_encode_primitive_bool(camqp_primitive* primitive, camqp_data** buffer) {
-	if (primitive->type != CAMQP_TYPE_BOOLEAN)
-		return;
-
-	// allocate working data
-	camqp_byte* wk = camqp_util_new(1*sizeof(camqp_byte));
-	if (!wk)
-		return;
-
-	if (primitive->data.b == true)
-		memcpy(wk, "\x41", 1);
-	else
-		memcpy(wk, "\x42", 1);
-
-	// copy working data to camqp_data structure
-	camqp_data* data = camqp_data_new(wk, 1);
-	// free working data
-	camqp_util_free(wk);
-	// set the result
-	*buffer = data;
-}
-// ---
-
-/// uint
-void camqp_encode_primitive_uint(camqp_primitive* element, camqp_data** buffer) {
-	if (
-		element->type != CAMQP_TYPE_UBYTE
-			&&
-		element->type != CAMQP_TYPE_USHORT
-			&&
-		element->type != CAMQP_TYPE_UINT
-			&&
-		element->type != CAMQP_TYPE_ULONG
-	)
-		return;
-
-	// allocate working data
-	camqp_byte* wk = camqp_util_new(9*sizeof(camqp_byte));
-	if (!wk)
-		return;
-
-	uint8_t len = 0;
-	if (element->type == CAMQP_TYPE_UBYTE) {
-		len = 2;
-		memcpy(wk, "\x50", 1);
-		memcpy(wk+1, (void*) &element->data.ui, 1);
-	} else if (element->type == CAMQP_TYPE_USHORT) {
-		len = 3;
-		uint16_t conv = (uint16_t) htons((uint16_t) element->data.ui);
-		memcpy(wk, "\x60", 1);
-		memcpy(wk+1, (void*) &conv, 2);
-	} else if (element->type == CAMQP_TYPE_UINT) {
-		len = 5;
-		uint32_t conv = (uint32_t) htonl((uint32_t) element->data.ui);
-		memcpy(wk, "\x70", 1);
-		memcpy(wk+1, (void*) &conv, 4);
-	} else if (element->type == CAMQP_TYPE_ULONG) {
-		len = 9;
-		uint64_t conv = (uint64_t) htonll((uint64_t) element->data.ui);
-		memcpy(wk, "\x80", 1);
-		memcpy(wk+1, (void*) &conv, 8);
-	}
-
-	// copy working data to camqp_data structure
-	camqp_data* data = camqp_data_new(wk, len);
-	// free working data
-	camqp_util_free(wk);
-	// set the result
-	*buffer = data;
-}
-// ---
-
-/// int
-void camqp_encode_primitive_int(camqp_primitive* element, camqp_data** buffer) {
-	if (
-		element->type != CAMQP_TYPE_BYTE
-			&&
-		element->type != CAMQP_TYPE_SHORT
-			&&
-		element->type != CAMQP_TYPE_INT
-			&&
-		element->type != CAMQP_TYPE_LONG
-			&&
-		element->type != CAMQP_TYPE_TIMESTAMP
-	)
-		return;
-
-	// allocate working data
-	camqp_byte* wk = camqp_util_new(9*sizeof(camqp_byte));
-	if (!wk)
-		return;
-
-	uint8_t len = 0;
-	if (element->type == CAMQP_TYPE_BYTE) {
-		len = 2;
-		uint8_t conv = (uint8_t) twos_complement(element->data.i);
-		memcpy(wk, "\x51", 1);
-		memcpy(wk+1, &conv, 1);
-	} else if (element->type == CAMQP_TYPE_SHORT) {
-		len = 3;
-		uint16_t conv1 = (uint16_t) twos_complement(element->data.i);
-		uint16_t conv = htons(conv1);
-		memcpy(wk, "\x61", 1);
-		memcpy(wk+1, (void*) &conv, 2);
-	} else if (element->type == CAMQP_TYPE_INT) {
-		len = 5;
-		uint32_t conv1 = (uint32_t) twos_complement(element->data.i);
-		uint32_t conv = htonl(conv1);
-		memcpy(wk, "\x71", 1);
-		memcpy(wk+1, (void*) &conv, 4);
-	} else if (element->type == CAMQP_TYPE_LONG) {
-		len = 9;
-		uint64_t conv1 = twos_complement(element->data.i);
-		uint64_t conv = htonll(conv1);
-		memcpy(wk, "\x81", 1);
-		memcpy(wk+1, (void*) &conv, 8);
-	} else if (element->type == CAMQP_TYPE_TIMESTAMP) {
-		len = 9;
-		uint64_t conv1 = twos_complement(element->data.i);
-		uint64_t conv = htonll(conv1);
-		memcpy(wk, "\x83", 1);
-		memcpy(wk+1, (void*) &conv, 8);
-	}
-
-	// copy working data to camqp_data structure
-	camqp_data* data = camqp_data_new(wk, len);
-	// free working data
-	camqp_util_free(wk);
-	// set the result
-	*buffer = data;
-}
-// ---
-
-/// float
-void camqp_encode_primitive_float(camqp_primitive* element, camqp_data** buffer) {
-	if (
-		element->type != CAMQP_TYPE_FLOAT
-			&&
-		element->type != CAMQP_TYPE_DECIMAL32
-	)
-		return;
-
-	// allocate working data
-	camqp_byte* wk = camqp_util_new(5*sizeof(camqp_byte));
-	if (!wk)
-		return;
-
-	uint32_t* conv1 = (uint32_t*) &element->data.f;
-	uint32_t  conv2 = htonl(*conv1);
-
-	if (element->type == CAMQP_TYPE_FLOAT)
-		memcpy(wk, "\x72", 1);
-	else
-		memcpy(wk, "\x74", 1);
-
-	memcpy(wk+1, (void*) &conv2, 4);
-
-	// copy working data to camqp_data structure
-	camqp_data* data = camqp_data_new(wk, 5);
-	// free working data
-	camqp_util_free(wk);
-	// set the result
-	*buffer = data;
-}
-// ---
-
-/// double
-void camqp_encode_primitive_double(camqp_primitive* element, camqp_data** buffer) {
-	if (
-		element->type != CAMQP_TYPE_DOUBLE
-			&&
-		element->type != CAMQP_TYPE_DECIMAL64
-	)
-		return;
-
-	// allocate working data
-	camqp_byte* wk = camqp_util_new(9*sizeof(camqp_byte));
-	if (!wk)
-		return;
-
-	uint64_t* conv1 = (uint64_t*) &element->data.d;
-	uint64_t  conv2 = htonll(*conv1);
-
-	if (element->type == CAMQP_TYPE_DOUBLE)
-		memcpy(wk, "\x82", 1);
-	else
-		memcpy(wk, "\x84", 1);
-
-	memcpy(wk+1, (void*) &conv2, 8);
-
-	// copy working data to camqp_data structure
-	camqp_data* data = camqp_data_new(wk, 9);
-	// free working data
-	camqp_util_free(wk);
-	// set the result
-	*buffer = data;
-}
-
-void camqp_encode_primitive_uuid(camqp_primitive* element, camqp_data** buffer) {
-	if (element->type != CAMQP_TYPE_UUID)
-		return;
-
-	// allocate working data
-	camqp_byte* wk = camqp_util_new(17*sizeof(camqp_byte));
-	if (!wk)
-		return;
-
-	memcpy(wk, "\x98", 1);
-	memcpy(wk+1, (void*) &element->data.uid, 16);
-
-	// copy working data to camqp_data structure
-	camqp_data* data = camqp_data_new(wk, 17);
-	// free working data
-	camqp_util_free(wk);
-	// set the result
-	*buffer = data;
-}
-// ---
-
-/// string
-void camqp_encode_primitive_string(camqp_primitive* element, camqp_data** buffer) {
-	if (
-		element->type != CAMQP_TYPE_CHAR
-			&&
-		element->type != CAMQP_TYPE_STRING
-			&&
-		element->type != CAMQP_TYPE_SYMBOL
-	)
-		return;
-
-	// fixed size
-	if (element->type == CAMQP_TYPE_CHAR) {
-		// allocate working data
-		camqp_byte* wk = camqp_util_new(5*sizeof(camqp_byte));
-		if (!wk)
-			return;
-
-		// TODO: niesom isty tym UTF-32 encodingom jak to ma byt
-		memcpy(wk, "\x73", 1);
-		memcpy(wk+1, element->data.str, strlen((char*)element->data.str));
-
-		// copy working data to camqp_data structure
-		camqp_data* data = camqp_data_new(wk, 5);
-		// free working data
-		camqp_util_free(wk);
-		// set the result
-		*buffer = data;
-
-		return;
-	}
-
-	// variable size
-
-
-	// determine length
-	uint32_t len = strlen((char*) element->data.str);
-
-	// choose type according to length
-	uint8_t code;
-	uint32_t size;
-	if (len <= 0xFF) {
-		if (element->type == CAMQP_TYPE_STRING)
-			code = 0xA1; // str8-utf8
-		else
-			code = 0xA3; // sym8
-
-		size = 1+1+len;
-	} else {
-		if (element->type == CAMQP_TYPE_STRING)
-			code = 0xB1; // str32-utf8
-		else
-			code = 0xB3; // sym32
-
-		size = 1+4+len;
-	}
-
-	// allocate working data
-	camqp_byte* wk = camqp_util_new(size*sizeof(camqp_byte));
-	if (!wk)
-		return;
-
-	memcpy(wk, &code, 1);
-	if (len <= 0xFF) {
-		memcpy(wk+1, &len, 1);
-		memcpy(wk+2, element->data.str, len);
-	} else {
-		uint32_t len_conv = htonl(len);
-		memcpy(wk+1, &len_conv, 4);
-		memcpy(wk+5, element->data.str, len);
-	}
-
-	// copy working data to camqp_data structure
-	camqp_data* data = camqp_data_new(wk, size);
-	// free working data
-	camqp_util_free(wk);
-	// set the result
-	*buffer = data;
-
-	return;
-}
-// ---
-
-/// binary
-void camqp_encode_primitive_binary(camqp_primitive* element, camqp_data** buffer) {
-	if (element->type != CAMQP_TYPE_BINARY)
-		return;
-
-	// determine length
-	uint32_t len = element->data.bin->size;
-
-	// choose type according to length
-	uint8_t code;
-	uint32_t size;
-	if (len <= 0xFF) {
-		code = 0xA0; // vbin8
-		size = 1+1+len;
-	} else {
-		code = 0xB0; // vbin32
-		size = 1+4+len;
-	}
-
-	// allocate working data
-	camqp_byte* wk = camqp_util_new(size*sizeof(camqp_byte));
-	if (!wk)
-		return;
-
-	memcpy(wk, &code, 1);
-	if (len <= 0xFF) {
-		memcpy(wk+1, &len, 1);
-		memcpy(wk+2, element->data.bin->bytes, len);
-	} else {
-		uint32_t len_conv = htonl(len);
-		memcpy(wk+1, &len_conv, 4);
-		memcpy(wk+5, element->data.bin->bytes, len);
-	}
-	// copy working data to camqp_data structure
-	camqp_data* data = camqp_data_new(wk, size);
-	// free working data
-	camqp_util_free(wk);
-	// set the result
-	*buffer = data;
-
-	return;
-}
-// ---
-
-void camqp_encode_list(camqp_vector* set, camqp_data** buffer) {
-	
-}
-
-void camqp_encode_map(camqp_vector* set, camqp_data** buffer) {
-	uint32_t count = 0;
-
-	camqp_vector_item* i = set->data;
-	while (i != NULL) {
-		count++;
-		i = i->next;
-	}
-
-	camqp_data** enc_keys = (camqp_data**) camqp_util_new(count*sizeof(camqp_data*));
-	if (!enc_keys)
-		return;
-
-	camqp_data** enc_values = camqp_util_new(count*sizeof(camqp_data*));
-	if (!enc_values) {
-		camqp_util_free(enc_keys);
-		return;
-	}
-
-	// create encoded representation of map data
-	camqp_vector_item* k = set->data;
-	for (
-		uint32_t j = 0
-			;
-		j < count && k != NULL
-			;
-		j++,
-		k = k->next
-	) {
-		// encode key
-		camqp_primitive* pt_key = camqp_primitive_string(set->base.context, CAMQP_TYPE_STRING, k->key);
-		enc_keys[j] = camqp_element_encode((camqp_element*) pt_key);
-		camqp_primitive_free(pt_key);
-
-		// encode element
-		enc_values[j] = camqp_element_encode(k->value);
-	}
-
-	// count encoded items
-	uint32_t e_count = 2*count; // keys & values
-	uint32_t e_len = 0;
-
-	for (uint32_t x = 0; x < count; x++) {
-		e_len += enc_keys[x]->size;
-		e_len += enc_values[x]->size;
-	}
-
-	uint8_t code;
-	uint32_t f_len = 0;
-	uint32_t t_len = e_len + 4; // count size
-	if (t_len <= 0xFF) {
-		code = 0xC0; // list8
-		f_len = 1 + 1 + 1 + e_len;
-	} else {
-		code = 0xD0; // list32
-		f_len = 1 + 4 + 4 + e_len;
-	}
-
-	// allocate working data
-	camqp_byte* wk = camqp_util_new(f_len*sizeof(camqp_byte));
-	if (!wk) {
-		// cleanup
-		for (uint32_t j = 0; j < count; j++) {
-			camqp_data_free(enc_keys[j]);
-			camqp_data_free(enc_values[j]);
-		}
-
-		camqp_util_free(enc_keys);
-		camqp_util_free(enc_values);
-		return;
-	}
-
-	camqp_byte* content = NULL;
-	memcpy(wk, &code, 1);
-	if (t_len <= 0xFF) {
-		uint8_t len = e_len + 1;
-		memcpy(wk+1, &len, 1);
-		memcpy(wk+2, &e_count, 1);
-		content = wk+3;
-	} else {
-		uint32_t len_conv = htonl((e_len + 4));
-		memcpy(wk+1, &len_conv, 4);
-		uint32_t cnt_conv = htonl(e_count);
-		memcpy(wk+5, &cnt_conv, 4);
-		content = wk+9;
-	}
-
-	for (uint32_t x = 0; x < count; x++) {
-		memcpy(content, enc_keys[x]->bytes, enc_keys[x]->size);
-		content += enc_keys[x]->size;
-
-		memcpy(content, enc_values[x]->bytes, enc_values[x]->size);
-		content += enc_values[x]->size;
-	}
-
-	// cleanup
-	for (uint32_t j = 0; j < count; j++) {
-		camqp_data_free(enc_keys[j]);
-		camqp_data_free(enc_values[j]);
-	}
-
-	camqp_util_free(enc_keys);
-	camqp_util_free(enc_values);
-
-	// copy working data to camqp_data structure
-	camqp_data* data = camqp_data_new(wk, f_len);
-	// free working data
-	camqp_util_free(wk);
-	// set the result
-	*buffer = data;
-}
 
 // ---
 

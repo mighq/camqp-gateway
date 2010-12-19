@@ -28,3 +28,12 @@ query syntax
 /[1]		- druha polozka (indexovanie od 0) primitivneho list elementu
 /[a]		- pomenovana polozka "a" primitivneho map elementu
 /item/sub	- field "sub" kompozitneho fieldu "item" elementu
+
+
+/**
+element
+  -> primitive
+    -> scalar
+    -> vector
+  -> composite
+ */

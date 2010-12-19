@@ -1,6 +1,8 @@
 TARGET_LIB=libcamqp.so
 TEST_BIN=test
-SOURCES=libcamqp.c
+SOURCES=\
+	libcamqp.c	\
+	encoding.c
 
 # dependencies
 INCLUDES=\

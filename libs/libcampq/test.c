@@ -6,6 +6,9 @@
 
 #define err(txt) { fprintf(stderr, (txt)); fprintf(stderr, "\n"); return EXIT_FAILURE; }
 
+char*				dump_data(unsigned char* pointer, unsigned int length);
+camqp_char*			camqp_data_dump(camqp_data* data);
+
 int main(int argc, char* argv[]) {
 	/// camqp_data
 	camqp_data* dt1 = camqp_data_new((camqp_byte*)"ABCDEFGH", 8);
@@ -29,50 +32,50 @@ int main(int argc, char* argv[]) {
 	/// camqp_primitive
 
 	// boolean
-	camqp_primitive* pt1 = camqp_primitive_bool(ctx1, true);
-	bool vl1 = camqp_value_bool(pt1);
+	camqp_scalar* pt1 = camqp_scalar_bool(ctx1, true);
+	bool vl1 = camqp_value_bool((camqp_element*) pt1);
 	printf("boolean: %d\n", vl1);
-	camqp_primitive_free(pt1);
+	camqp_element_free((camqp_element*) pt1);
 
 	// int
-	camqp_primitive* pt2 = camqp_primitive_int(ctx1, CAMQP_TYPE_BYTE, -36);
-	int vl2 = camqp_value_int(pt2);
+	camqp_scalar* pt2 = camqp_scalar_int(ctx1, CAMQP_TYPE_BYTE, -36);
+	int vl2 = camqp_value_int((camqp_element*) pt2);
 	printf("int: %d\n", vl2);
-	camqp_primitive_free(pt2);
+	camqp_element_free((camqp_element*) pt2);
 
 	// uint
-	camqp_primitive* pt3 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 126);
-	int vl3 = camqp_value_uint(pt3);
+	camqp_scalar* pt3 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 126);
+	int vl3 = camqp_value_uint((camqp_element*) pt3);
 	printf("uint: %d\n", vl3);
-	camqp_primitive_free(pt3);
+	camqp_element_free((camqp_element*) pt3);
 
 	// float
-	camqp_primitive* pt4 = camqp_primitive_float(ctx1, CAMQP_TYPE_FLOAT, 3.14);
-	float vl4 = camqp_value_float(pt4);
+	camqp_scalar* pt4 = camqp_scalar_float(ctx1, CAMQP_TYPE_FLOAT, 3.14);
+	float vl4 = camqp_value_float((camqp_element*) pt4);
 	printf("float: %f\n", vl4);
-	camqp_primitive_free(pt4);
+	camqp_element_free((camqp_element*) pt4);
 
 	// double
-	camqp_primitive* pt5 = camqp_primitive_double(ctx1, CAMQP_TYPE_DOUBLE, 198.32165489);
-	double vl5 = camqp_value_double(pt5);
+	camqp_scalar* pt5 = camqp_scalar_double(ctx1, CAMQP_TYPE_DOUBLE, 198.32165489);
+	double vl5 = camqp_value_double((camqp_element*) pt5);
 	printf("double: %0.8f\n", vl5);
-	camqp_primitive_free(pt5);
+	camqp_element_free((camqp_element*) pt5);
 
 	// string
-	camqp_primitive* pt6 = camqp_primitive_string(ctx1, CAMQP_TYPE_STRING, (camqp_char*) "pela hopa");
-	const camqp_char* vl6 = camqp_value_string(pt6);
+	camqp_scalar* pt6 = camqp_scalar_string(ctx1, CAMQP_TYPE_STRING, (camqp_char*) "pela hopa");
+	const camqp_char* vl6 = camqp_value_string((camqp_element*) pt6);
 	printf("%s\n", vl6);
-	camqp_primitive_free(pt6);
+	camqp_element_free((camqp_element*) pt6);
 
 	// binary
 	camqp_data* dt2 = camqp_data_new((camqp_byte*) "XYZ", 3);
 	if (!dt2)
 		err("T004");
 
-	camqp_primitive* pt7 = camqp_primitive_binary(ctx1, dt2);
-	camqp_data* vl7 = camqp_value_binary(pt7);
+	camqp_scalar* pt7 = camqp_scalar_binary(ctx1, dt2);
+	camqp_data* vl7 = camqp_value_binary((camqp_element*) pt7);
 	printf("%.3s:%d\n", vl7->bytes, vl7->size);
-	camqp_primitive_free(pt7);
+	camqp_element_free((camqp_element*) pt7);
 
 	camqp_data_free(dt2);
 
@@ -82,23 +85,23 @@ int main(int argc, char* argv[]) {
 	camqp_element_free(tp_n);
 
 	// uuid
-	camqp_primitive* tp_id = camqp_primitive_uuid(ctx1);
+	camqp_scalar* tp_id = camqp_scalar_uuid(ctx1);
 	{
-		const camqp_uuid* uid2 = camqp_value_uuid(tp_id);
+		const camqp_uuid* uid2 = camqp_value_uuid((camqp_element*) tp_id);
 		char* wk = dump_data((void*) uid2, 16);
 		printf("uuid: %s\n", wk);
 		free(wk);
 	}
 
-	camqp_primitive_free(tp_id);
+	camqp_element_free((camqp_element*) tp_id);
 	// ---
 
 	/// camqp_vector
-	camqp_primitive* pt8 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 418);
-	camqp_primitive* pt9 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 325);
-	camqp_primitive* pt10 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 65);
-	camqp_primitive* pt11 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 123);
-	camqp_primitive* pt12 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 456);
+	camqp_scalar* pt8  = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 418);
+	camqp_scalar* pt9  = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 325);
+	camqp_scalar* pt10 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 65);
+	camqp_scalar* pt11 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 123);
+	camqp_scalar* pt12 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 456);
 
 	camqp_vector* vec1 = camqp_vector_new(ctx1);
 	camqp_vector_item_put(vec1, (camqp_char*) "key1", (camqp_element*) pt8);
@@ -106,12 +109,12 @@ int main(int argc, char* argv[]) {
 	camqp_vector_item_put(vec1, (camqp_char*) "key5", (camqp_element*) pt10);
 	camqp_vector_item_put(vec1, (camqp_char*) "key3", (camqp_element*) pt11);
 	camqp_vector_item_put(vec1, (camqp_char*) "key3", (camqp_element*) pt12);
-	camqp_primitive_free(pt12);
+	camqp_element_free((camqp_element*) pt12);
 
 	{
 		camqp_vector_item* to_del = vec1->data;
 		while (to_del) {
-			uint64_t x = camqp_value_uint((camqp_primitive*) to_del->value);
+			uint64_t x = camqp_value_uint((camqp_element*) to_del->value);
 			printf("%s:%d\n", to_del->key, (int) x);
 			to_del = to_del->next;
 		}
@@ -119,11 +122,11 @@ int main(int argc, char* argv[]) {
 
 	{
 		camqp_element* el1 = camqp_vector_item_get(vec1, (camqp_char*) "key3");
-		uint64_t y = camqp_value_uint((camqp_primitive*) el1);
+		uint64_t y = camqp_value_uint((camqp_element*) el1);
 		printf("item3: 123=%d?\n", (int)y);
 	}
 
-	camqp_vector_free(vec1, true);
+	camqp_element_free((camqp_element*) vec1);
 	// ---
 
 	/// camqp_composite
@@ -133,16 +136,16 @@ int main(int argc, char* argv[]) {
 		err("T008");
 	}
 
-	camqp_primitive* pt13 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 325);
+	camqp_scalar* pt13 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 325);
 	camqp_composite_field_put(comp1, (camqp_char*) "cislo", (camqp_element*) pt13);
 
 	{
 		camqp_element* el2 = camqp_composite_field_get(comp1, (camqp_char*) "cislo");
-		uint64_t y = camqp_value_uint((camqp_primitive*) el2);
+		uint64_t y = camqp_value_uint((camqp_element*) el2);
 		printf("field 'cislo': 325=%d?\n", (int) y);
 	}
 
-	camqp_composite_free(comp1, true);
+	camqp_element_free((camqp_element*) comp1);
 	// ---
 
 	/// encoding
@@ -163,7 +166,7 @@ int main(int argc, char* argv[]) {
 
 	// bool
 	{
-		camqp_primitive* pt = camqp_primitive_bool(ctx1, false);
+		camqp_scalar* pt = camqp_scalar_bool(ctx1, false);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -177,7 +180,7 @@ int main(int argc, char* argv[]) {
 
 	// ubyte
 	{
-		camqp_primitive* pt = camqp_primitive_uint(ctx1, CAMQP_TYPE_UBYTE, 45);
+		camqp_scalar* pt = camqp_scalar_uint(ctx1, CAMQP_TYPE_UBYTE, 45);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -191,7 +194,7 @@ int main(int argc, char* argv[]) {
 
 	// ushort
 	{
-		camqp_primitive* pt = camqp_primitive_uint(ctx1, CAMQP_TYPE_USHORT, 612);
+		camqp_scalar* pt = camqp_scalar_uint(ctx1, CAMQP_TYPE_USHORT, 612);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -205,7 +208,7 @@ int main(int argc, char* argv[]) {
 
 	// uint
 	{
-		camqp_primitive* pt = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 76543);
+		camqp_scalar* pt = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 76543);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -219,21 +222,21 @@ int main(int argc, char* argv[]) {
 
 	// ulong
 	{
-		camqp_primitive* pt = camqp_primitive_uint(ctx1, CAMQP_TYPE_ULONG, 9294967297);
+		camqp_element* pt = (camqp_element*) camqp_scalar_uint(ctx1, CAMQP_TYPE_ULONG, 9294967297);
 
-		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
+		camqp_data* enc = camqp_element_encode(pt);
 		camqp_char* dump = camqp_data_dump(enc);
 
 		printf("%s\n", dump);
 
 		camqp_util_free(dump);
 		camqp_data_free(enc);
-		camqp_element_free((camqp_element*) pt);
+		camqp_element_free(pt);
 	}
 
 	// byte
 	{
-		camqp_primitive* pt = camqp_primitive_int(ctx1, CAMQP_TYPE_BYTE, 45);
+		camqp_element* pt = (camqp_element*) camqp_scalar_int(ctx1, CAMQP_TYPE_BYTE, 45);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -247,7 +250,7 @@ int main(int argc, char* argv[]) {
 
 	// short
 	{
-		camqp_primitive* pt = camqp_primitive_int(ctx1, CAMQP_TYPE_SHORT, -1367);
+		camqp_element* pt = (camqp_element*) camqp_scalar_int(ctx1, CAMQP_TYPE_SHORT, -1367);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -261,7 +264,7 @@ int main(int argc, char* argv[]) {
 
 	// int
 	{
-		camqp_primitive* pt = camqp_primitive_int(ctx1, CAMQP_TYPE_INT, -46377105);
+		camqp_element* pt = (camqp_element*) camqp_scalar_int(ctx1, CAMQP_TYPE_INT, -46377105);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -275,7 +278,7 @@ int main(int argc, char* argv[]) {
 
 	// long
 	{
-		camqp_primitive* pt = camqp_primitive_int(ctx1, CAMQP_TYPE_LONG, 80181598485);
+		camqp_element* pt = (camqp_element*) camqp_scalar_int(ctx1, CAMQP_TYPE_LONG, 80181598485);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -289,7 +292,7 @@ int main(int argc, char* argv[]) {
 
 	// float
 	{
-		camqp_primitive* pt = camqp_primitive_float(ctx1, CAMQP_TYPE_FLOAT, 3.14);
+		camqp_element* pt = (camqp_element*) camqp_scalar_float(ctx1, CAMQP_TYPE_FLOAT, 3.14);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -303,7 +306,7 @@ int main(int argc, char* argv[]) {
 
 	// double
 	{
-		camqp_primitive* pt = camqp_primitive_double(ctx1, CAMQP_TYPE_DOUBLE, 3.1415);
+		camqp_element* pt = (camqp_element*) camqp_scalar_double(ctx1, CAMQP_TYPE_DOUBLE, 3.1415);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -317,7 +320,7 @@ int main(int argc, char* argv[]) {
 
 	// uuid
 	{
-		camqp_primitive* pt = camqp_primitive_uuid(ctx1);
+		camqp_element* pt = (camqp_element*) camqp_scalar_uuid(ctx1);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -338,7 +341,7 @@ int main(int argc, char* argv[]) {
 
 	// char
 	{
-		camqp_primitive* pt = camqp_primitive_string(ctx1, CAMQP_TYPE_CHAR, (camqp_char*) "Z");
+		camqp_element* pt = (camqp_element*) camqp_scalar_string(ctx1, CAMQP_TYPE_CHAR, (camqp_char*) "Z");
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -352,7 +355,7 @@ int main(int argc, char* argv[]) {
 
 	// string
 	{
-		camqp_primitive* pt = camqp_primitive_string(ctx1, CAMQP_TYPE_SYMBOL, (camqp_char*) "AJS da peli peli!");
+		camqp_scalar* pt = camqp_scalar_string(ctx1, CAMQP_TYPE_SYMBOL, (camqp_char*) "AJS da peli peli!");
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -367,7 +370,7 @@ int main(int argc, char* argv[]) {
 	// binary
 	{
 		camqp_data dt = camqp_data_static((camqp_byte*) "\x00_ABCD_\x00", 8);
-		camqp_primitive* pt = camqp_primitive_binary(ctx1, &dt);
+		camqp_scalar* pt = camqp_scalar_binary(ctx1, &dt);
 
 		camqp_data* enc = camqp_element_encode((camqp_element*) pt);
 		camqp_char* dump = camqp_data_dump(enc);
@@ -381,9 +384,9 @@ int main(int argc, char* argv[]) {
 
 	// map
 	{
-		camqp_primitive* pt1 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 418);
-		camqp_primitive* pt2 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 325);
-		camqp_primitive* pt3 = camqp_primitive_uint(ctx1, CAMQP_TYPE_UINT, 65);
+		camqp_scalar* pt1 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 418);
+		camqp_scalar* pt2 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 325);
+		camqp_scalar* pt3 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 65);
 
 		camqp_vector* vec = camqp_vector_new(ctx1);
 		camqp_vector_item_put(vec, (camqp_char*) "item_1", (camqp_element*) pt1);
@@ -401,7 +404,32 @@ int main(int argc, char* argv[]) {
 			puts("ERROR!");
 		}
 
-		camqp_vector_free(vec, true);
+		camqp_element_free((camqp_element*) vec);
+	}
+
+	// list
+	{
+		camqp_scalar* pt1 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 418);
+		camqp_scalar* pt2 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 325);
+		camqp_scalar* pt3 = camqp_scalar_uint(ctx1, CAMQP_TYPE_UINT, 65);
+
+		camqp_vector* vec = camqp_vector_new(ctx1);
+		camqp_vector_item_put(vec, (camqp_char*) "0", (camqp_element*) pt1);
+		camqp_vector_item_put(vec, (camqp_char*) "1", (camqp_element*) pt2);
+		camqp_vector_item_put(vec, (camqp_char*) "2", (camqp_element*) pt3);
+
+		camqp_data* enc = camqp_element_encode((camqp_element*) vec);
+		if (enc) {
+			camqp_char* dump = camqp_data_dump(enc);
+			printf("%s\n", dump);
+			camqp_util_free(dump);
+
+			camqp_data_free(enc);
+		} else {
+			puts("ERROR!");
+		}
+
+		camqp_element_free((camqp_element*) vec);
 	}
 
 	// ---
