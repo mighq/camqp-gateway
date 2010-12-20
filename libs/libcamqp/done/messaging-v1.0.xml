@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<amqp
+	name="messaging-v1.0"
+	xmlns="http://www.amqp.org/schema/amqp.xsd"
+>
+	<!-- include section with types & encodings from "primitive" protocol -->
+	<include
+		xmlns="http://www.w3.org/2001/XInclude"
+		href="primitive.xml"
+		xpointer="xmlns(ns=http://www.amqp.org/schema/amqp.xsd)xpointer(/ns:amqp/ns:section[@name='encodings'])"
+	/>
+
+	<section name="general">
+		<type name="request" class="composite" source="list">
+			<descriptor code="0x00000001"/>
+
+			<field name="id" type="uuid" mandatory="true"/>
+			<field name="protocol" type="string"/>
+			<field name="content" type="binary" mandatory="true"/>
+		</type>
+
+		<type name="response" class="composite" source="list">
+			<descriptor code="0x00000002" name="response"/>
+
+			<field name="id" type="uuid" mandatory="true"/>
+			<field name="correlation" type="uuid" mandatory="true"/>
+			<field name="protocol" type="string"/>
+			<field name="content" type="binary" mandatory="true"/>
+		</type>
+	</section>
+</amqp>
