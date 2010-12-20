@@ -168,26 +168,48 @@ bool camqp_composite_field_put(camqp_composite* element, const camqp_char* key, 
 		xmlNodePtr field_elem = xp->nodesetval->nodeTab[0];
 		xmlXPathFreeObject(xp);
 
-		// check type of field
-		xmlChar* type_str = xmlGetProp(field_elem, (xmlChar*) "type");
-		if (!type_str)
-			return false;
-
-		// provided type
-		camqp_char* used = camqp_element_type_name(item);
-
-		// compare
-		int cmp = xmlStrcmp(type_str, used);
-		if (cmp != 0) {
-			// invalid type used!
-			xmlFree(type_str);
-			camqp_util_free(used);
-
-			return false;
+		bool null_allowed;
+		xmlChar* mandatory_str = xmlGetProp(field_elem, (xmlChar*) "mandatory");
+		if (mandatory_str) {
+			// mandatory?
+			null_allowed = xmlStrcmp((xmlChar*) "true", mandatory_str) != 0;
+			xmlFree(mandatory_str);
+		} else {
+			// mandatory not specified
+			null_allowed = true;
 		}
 
-		xmlFree(type_str);
-		camqp_util_free(used);
+		// check if null against rules
+		bool is_null = camqp_element_is_null(item);
+		if (is_null) {
+			// null
+
+			// check if it can be null
+			if (!null_allowed)
+				return false;
+		} else {
+			// not null
+			// check type of field
+			xmlChar* type_str = xmlGetProp(field_elem, (xmlChar*) "type");
+			if (!type_str)
+				return false;
+
+			// provided type
+			camqp_char* used = camqp_element_type_name(item);
+
+			// compare
+			int cmp = xmlStrcmp(type_str, used);
+			if (cmp != 0) {
+				// invalid type used!
+				xmlFree(type_str);
+				camqp_util_free(used);
+
+				return false;
+			}
+
+			xmlFree(type_str);
+			camqp_util_free(used);
+		}
 	}
 
 	// create new item

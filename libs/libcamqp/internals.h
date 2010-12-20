@@ -56,6 +56,25 @@ void			camqp_encode_map(camqp_vector* set, camqp_data** buffer);
 void			camqp_encode_composite(camqp_composite* element, camqp_data** buffer);
 // ---
 
+/// decoding
+camqp_element* camqp_decode_primitive(camqp_context* context, camqp_data* binary, camqp_data* left);
+
+camqp_element* camqp_decode_scalar(camqp_context* context, camqp_data* binary, camqp_data* left);
+
+camqp_element* camqp_decode_scalar_bool(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code);
+camqp_element* camqp_decode_scalar_uint(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code);
+camqp_element* camqp_decode_scalar_int(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code);
+camqp_element* camqp_decode_scalar_float(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code);
+camqp_element* camqp_decode_scalar_double(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code);
+camqp_element* camqp_decode_scalar_uuid(camqp_context* context, camqp_data* binary, camqp_data* left);
+camqp_element* camqp_decode_scalar_binary(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code);
+camqp_element* camqp_decode_scalar_string(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code);
+
+camqp_element* camqp_decode_vector(camqp_context* context, camqp_data* binary, camqp_data* left);
+
+camqp_element* camqp_decode_composite(camqp_context* context, camqp_data* binary, camqp_data* left);
+// ---
+
 bool				camqp_is_numeric(const camqp_char* string);
 
 #endif

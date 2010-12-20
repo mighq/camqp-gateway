@@ -11,3 +11,6 @@
 	* uuid odpovede
 
 * protokol specialne pre SMS
+
+CAMQP: pripravit relaxng & xmlschemu pre definicie, viac restritktivnu nez amqp.dtd
+v lib naviac skontrolovat proti scheme

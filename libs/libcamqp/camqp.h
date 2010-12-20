@@ -238,10 +238,10 @@ void				camqp_util_free(void* data);
 // ---
 
 /// encoding, decoding & querying
-camqp_data*		camqp_element_encode(camqp_element* element);
+camqp_data*				camqp_element_encode(camqp_element* element);
+camqp_element*			camqp_element_decode(camqp_context* context, camqp_data* binary, camqp_data* left);
 
-camqp_element*	camqp_element_decode(camqp_context* context, camqp_data* binary);
-camqp_element*	camqp_query(camqp_context* context, const camqp_char* query, camqp_data* binary);
+const camqp_element*	camqp_query(camqp_element* root, const camqp_char* query);
 // ---
 
 #endif

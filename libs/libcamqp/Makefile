@@ -8,7 +8,9 @@ SOURCES=\
 	scalar.c	\
 	vector.c	\
 	composite.c	\
-	encoding.c
+	encoding.c	\
+	decoding.c	\
+	query.c
 
 # dependencies
 INCLUDES=\

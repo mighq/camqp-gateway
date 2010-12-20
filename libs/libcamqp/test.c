@@ -472,6 +472,45 @@ int main(int argc, char* argv[]) {
 
 	// ---
 
+	/// decoding
+	{
+		camqp_data left;
+		camqp_data bin_data = camqp_data_static((const camqp_byte*) "\x00\x70\x00\x00\x00\x02\xC0\x29\x04\x98\x9E\x2F\x77\xBF\x07\x83\x47\x42\xAC\x96\x9E\xFD\x0C\x93\xFD\x47\x98\xCA\x3D\x6D\xA7\x0A\x6E\x4E\x10\xB5\xA8\xA0\xB6\xE4\x7D\xA3\x15\x40\xA0\x03\x58\x59\x5A", 49);
+
+		{
+			camqp_char* dump = camqp_data_dump(&bin_data);
+			printf("TODO: %s\n", dump);
+			camqp_util_free(dump);
+		}
+
+		camqp_element* result = camqp_element_decode(ctx1, &bin_data, &left);
+		if (result) {
+			// check that nothing left
+			if (left.bytes != NULL || left.size != 0) {
+				puts("no everything decoded!");
+				camqp_char* dump = camqp_data_dump(&left);
+				printf("LEFT: %s\n", dump);
+				camqp_util_free(dump);
+			}
+
+			// encode again
+			camqp_data* enc = camqp_element_encode((camqp_element*) result);
+			if (enc) {
+				camqp_char* dump = camqp_data_dump(enc);
+				printf("ENCODED AGAIN:%s\n", dump);
+				camqp_util_free(dump);
+				camqp_data_free(enc);
+			} else {
+				puts("ERROR encoding!");
+			}
+
+			camqp_element_free(result);
+		} else {
+			puts("ERROR!");
+		}
+	}
+	// ---
+
 	camqp_context_free(ctx1);
 
 	return EXIT_SUCCESS;
