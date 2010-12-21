@@ -81,6 +81,9 @@ camqp_element* camqp_decode_scalar_string(camqp_context* context, camqp_data* bi
 
 camqp_element* camqp_decode_vector(camqp_context* context, camqp_data* binary, camqp_data* left);
 
+camqp_element* camqp_decode_vector_list(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code);
+camqp_element* camqp_decode_vector_map(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code);
+
 camqp_element* camqp_decode_composite(camqp_context* context, camqp_data* binary, camqp_data* left);
 // ---
 

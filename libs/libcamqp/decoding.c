@@ -484,9 +484,243 @@ camqp_element* camqp_decode_scalar_string(camqp_context* context, camqp_data* bi
 // ---
 
 /// vector
+
+/// common
 camqp_element* camqp_decode_vector(camqp_context* context, camqp_data* binary, camqp_data* left) {
-	return NULL;
+	camqp_element* ret = NULL;
+
+	camqp_byte*	ptr = binary->bytes;
+	camqp_byte	type_code = *ptr;
+
+	// move pointer to scalar data
+	camqp_data vector_data;
+	vector_data.bytes = binary->bytes + 1;
+	vector_data.size = binary->size - 1;
+
+	// also move pointer to left data
+	left->bytes = vector_data.bytes;
+	left->size = vector_data.size;
+
+	switch (type_code) {
+		case 0xC0:
+		case 0xD0:
+			ret = camqp_decode_vector_list(context, &vector_data, left, type_code);
+			break;
+		case 0xC1:
+		case 0xD1:
+			ret = camqp_decode_vector_map(context, &vector_data, left, type_code);
+			break;
+
+		// TODO: array
+		case 0xE0:
+		case 0xF0:
+		default:
+			// unknown or unimplemented type
+
+			// return pointer to left data
+			left->bytes = binary->bytes;
+			left->size = binary->size;
+
+			return NULL;
+	}
+
+	return ret;
 }
+// ---
+
+/// list
+camqp_element* camqp_decode_vector_list(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code) {
+	// smallest list (empty)
+	if (binary == NULL || binary->size < 2)
+		return NULL;
+
+	camqp_byte* ptr = binary->bytes;
+
+	// 
+	uint32_t	length;
+	uint32_t	count;
+	uint8_t		header_size;
+
+	if (type_code == 0xC0) {
+		// list8
+		uint8_t len;
+
+		len = (uint8_t) *ptr;
+		length = (uint32_t) len;
+
+		len = (uint8_t) *(ptr+1);
+		count = (uint32_t) len;
+
+		header_size = 2;
+	} else {
+		// list32
+		uint32_t len;
+
+		memcpy(&len, ptr, 4);
+		length = ntohl(len);
+
+		memcpy(&len, (void*) (ptr+4), 4);
+		count = ntohl(len);
+
+		header_size = 8;
+	}
+
+	// shift pointer to untreated data
+	left->bytes = ptr + header_size;
+	left->size = binary->size - header_size;
+
+	// new vector
+	camqp_vector* list = camqp_vector_new(context);
+	if (!list)
+		return NULL;
+
+	// decode items
+	uint32_t read_size = 0;
+	for (uint32_t i = 0; i < count; i++) {
+		// prepare pointers to non-decoded data
+		camqp_data todo;
+		todo.bytes = left->bytes;
+		todo.size = left->size;
+
+		// decode element
+		camqp_element* decoded = camqp_element_decode(context, &todo, left);
+		if (!decoded) {
+			// unable to decode element, break whole decoding
+			camqp_element_free((camqp_element*) list);
+			return NULL;
+		}
+
+		// increment already done counter
+		read_size += (todo.size - left->size);
+
+		// add it to composite
+		uint8_t idx_len = 11; // max 4294967295
+		camqp_char idx[idx_len];
+		snprintf((char*) idx, idx_len, "%d", i);
+		/*if (*/camqp_vector_item_put(list, (const camqp_char*) idx, decoded);/*) {
+			camqp_element_free(decoded);
+			camqp_element_free((camqp_element*) list);
+
+			return NULL;
+		}*/
+	}
+
+	return (camqp_element*) list;
+}
+// ---
+
+/// map
+camqp_element* camqp_decode_vector_map(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code) {
+	// smallest list (empty)
+	if (binary == NULL || binary->size < 2)
+		return NULL;
+
+	camqp_byte* ptr = binary->bytes;
+
+	// 
+	uint32_t	length;
+	uint32_t	count;
+	uint8_t		header_size;
+	uint32_t	keys;
+
+	if (type_code == 0xC1) {
+		// map8
+		uint8_t len;
+
+		len = (uint8_t) *ptr;
+		length = (uint32_t) len;
+
+		len = (uint8_t) *(ptr+1);
+		count = (uint32_t) len;
+
+		header_size = 2;
+	} else {
+		// map32
+		uint32_t len;
+
+		memcpy(&len, ptr, 4);
+		length = ntohl(len);
+
+		memcpy(&len, (void*) (ptr+4), 4);
+		count = ntohl(len);
+
+		header_size = 8;
+	}
+
+	// check for correct count (must be 2xkeys)
+	if ((count % 2) == 0) {
+		keys = count / 2;
+	} else {
+		// invalid count
+		return NULL;
+	}
+
+	// shift pointer to untreated data
+	left->bytes = ptr + header_size;
+	left->size = binary->size - header_size;
+
+	// new vector
+	camqp_vector* map = camqp_vector_new(context);
+	if (!map)
+		return NULL;
+
+	// decode items
+	for (uint32_t i = 0; i < keys; i++) {
+		// prepare pointers to non-decoded data
+		camqp_data todo;
+
+		// 
+		todo.bytes = left->bytes;
+		todo.size = left->size;
+
+		// decode key
+		camqp_element* key = camqp_element_decode(context, &todo, left);
+		if (!key) {
+			// unable to decode element, break whole decoding
+			camqp_element_free((camqp_element*) map);
+			return NULL;
+		}
+
+		// check that it is scalar
+		if (!camqp_element_is_scalar(key)) {
+			camqp_element_free((camqp_element*) key);
+			camqp_element_free((camqp_element*) map);
+			return NULL;
+		}
+
+		// check for string
+		camqp_scalar* sc_key = (camqp_scalar*) key;
+		if (sc_key->base.type != CAMQP_TYPE_STRING && sc_key->base.type != CAMQP_TYPE_SYMBOL) {
+			camqp_element_free((camqp_element*) key);
+			camqp_element_free((camqp_element*) map);
+			return NULL;
+		}
+
+		// get index of element
+		const camqp_char* idx = camqp_value_string(key);
+
+		// move pointer to value bytes
+		todo.bytes = left->bytes;
+		todo.size = left->size;
+
+		// decode value
+		camqp_element* decoded = camqp_element_decode(context, &todo, left);
+		if (!decoded) {
+			// unable to decode element, break whole decoding
+			camqp_element_free((camqp_element*) key);
+			camqp_element_free((camqp_element*) map);
+			return NULL;
+		}
+
+		// add it to composite
+		camqp_vector_item_put(map, idx, decoded);
+		camqp_element_free(key);
+	}
+
+	return (camqp_element*) map;
+}
+// ---
+
 // ---
 
 /// composite
