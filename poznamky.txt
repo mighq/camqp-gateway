@@ -1,16 +1,6 @@
-* logovanie
-	do suboru
-* osetrenie chyb pri starte a neuspesnej inicializacii pluginov
+* prehladnejsie osetrenie chyb pri starte a neuspesnej inicializacii pluginov, treating error messageov, navraty, nie g_error a abort
 * lepsie vypisy:
 	log nastavenia pluginov => instancie
 	vypis co vlastne budes robi
-* nejak rozumne spristupnit funkcie jadra
-
-* vnutorny protokol nejak jednoducho navrhnut
-	* uuid spravy
-	* uuid odpovede
-
-* protokol specialne pre SMS
-
-CAMQP: pripravit relaxng & xmlschemu pre definicie, viac restritktivnu nez amqp.dtd
-v lib naviac skontrolovat proti scheme
+* nejak rozumnejsie spristupnit funkcie jadra, interface jadra, modul ho dostava ako parameter, alebo sa mu nastavuje pomocou metody este pred getmodule 
+* registrovanie blockerov v jadre???

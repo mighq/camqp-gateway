@@ -1,0 +1,27 @@
+query syntax
+/			- element
+/abc		- field kompozitneho elementu
+/[1]		- druha polozka (indexovanie od 0) primitivneho list elementu
+/[a]		- pomenovana polozka "a" primitivneho map elementu
+/item/sub	- field "sub" kompozitneho fieldu "item" elementu
+
+
+/**
+element
+  -> primitive
+    -> scalar
+    -> vector
+  -> composite
+ */
+
+TODO:
+BUDUCNOST podpora namespacov -> viac kontextov / protokolov
+CAMQP: pripravit relaxng & xmlschemu pre definicie, viac restritktivnu nez amqp.dtd
+v lib naviac skontrolovat proti scheme
+// TODO nejak poriesit exception navratove hodnoty?
+// TODO kontrolovanie utf8 stringov
+// TODO hashova reprezentacia vektorov
+// TODO podpora UTF16 (0xA2 a 0xB2)
+// podpora inej platformy nez i686
+// podpora array
+// lepsie kontroly AMQP, nielen kompozity ale aj do hlbky
