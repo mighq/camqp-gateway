@@ -9,3 +9,5 @@
 # needed
 >=sqlite-3.3.1
 	threadsafe
+
+# libsmpp34-1.7.1, http://sourceforge.net/projects/c-open-smpp-34/
