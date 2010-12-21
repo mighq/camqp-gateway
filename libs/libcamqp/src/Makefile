@@ -1,5 +1,4 @@
 TARGET_LIB=libcamqp.so
-TEST_BIN=test
 SOURCES=\
 	utils.c		\
 	data.c		\
@@ -22,6 +21,14 @@ LIBS=\
 	-lxml2		\
 	-luuid
 
+# dist
+DIST_INCLUDE=../include
+DIST_LIB=../lib
+
+DIST_FILES=\
+	${DIST_INCLUDE}/camqp.h	\
+	${DIST_LIB}/${TARGET}
+
 # environment
 CC=gcc
 LD=ld
@@ -29,41 +36,36 @@ STRIP=strip
 CFLAGS=-std=c99 -Wall -O0 -ggdb -fPIC -pedantic
 LFLAGS=
 
-DIR_OBJ=obj
-DIR_DONE=done
+DIR_TMP=tmp
 
 # computed parts
-OBJS=$(patsubst %.c,${DIR_OBJ}/%.o,${SOURCES})
-TARGET=${DIR_DONE}/${TARGET_LIB}
-TEST=${DIR_DONE}/${TEST_BIN}
+OBJS=$(patsubst %.c,${DIR_TMP}/%.o,${SOURCES})
+TARGET=${DIR_TMP}/${TARGET_LIB}
 
-all: ${TARGET} ${TEST}
+all: dist
 
-${TARGET}: ${OBJS} | ${DIR_DONE}
+dist: ${TARGET} ${DIST_FILES}
+
+${DIST_FILES}:
+	[ -d ${DIST_INCLUDE} ] || mkdir ${DIST_INCLUDE}
+	[ -d ${DIST_LIB} ] || mkdir ${DIST_LIB}
+	cp -r ${TARGET} ${DIST_LIB}
+	cp -r camqp.h ${DIST_INCLUDE}
+
+${TARGET}: ${OBJS} | ${DIR_TMP}
 	${LD} ${LFLAGS} -shared -soname ${TARGET_LIB} -o ${TARGET} ${OBJS} ${LIBS}
 
-${TEST}: ${TARGET} | ${DIR_DONE}
-	${CC} ${CFLAGS} -I. -I/usr/include/libxml2 -L${DIR_DONE} -lcamqp -L/usr/lib -lxml2 -luuid -o $@ test.c
-
-${DIR_OBJ}/%.o: %.c | ${DIR_OBJ}
+${DIR_TMP}/%.o: %.c | ${DIR_TMP}
 	${CC} ${CFLAGS} ${INCLUDES} -o $@ -c $<
 
 # directories creation
-${DIR_DONE}:
-	mkdir -p ${DIR_DONE}
-
-${DIR_OBJ}:
-	mkdir -p ${DIR_OBJ}
-
-# test instance
-test: ${TEST}
-	@cd ${DIR_DONE} && LD_LIBRARY_PATH=".:${LD_LIBRARY_PATH}" ./${TEST_BIN}
-
-check: ${TEST}
-	@cd ${DIR_DONE} && LD_LIBRARY_PATH=".:${LD_LIBRARY_PATH}" valgrind --tool=memcheck  --leak-check=full --show-reachable=yes --leak-resolution=high --suppressions=../suppress.txt ./${TEST_BIN}
+${DIR_TMP}:
+	mkdir -p ${DIR_TMP}
 
 # CLEANUP
 clean:
 	rm -rf ${TARGET}
-	rm -rf ${TEST}
-	rm -rf ${DIR_OBJ}
+	rm -rf ${DIR_TMP}
+	rm -rf ../include
+	rm -rf ../lib
+	cd test && make clean
