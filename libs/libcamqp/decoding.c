@@ -83,6 +83,8 @@ camqp_element* camqp_decode_primitive(camqp_context* context, camqp_data* binary
 // ---
 
 /// scalar
+
+/// common
 camqp_element* camqp_decode_scalar(camqp_context* context, camqp_data* binary, camqp_data* left) {
 	camqp_element* ret = NULL;
 
@@ -150,27 +152,198 @@ camqp_element* camqp_decode_scalar(camqp_context* context, camqp_data* binary, c
 
 	return ret;
 }
+// ---
 
+/// bool
 camqp_element* camqp_decode_scalar_bool(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code) {
-	return NULL;
+	return (camqp_element*) camqp_scalar_bool(context, type_code == 0x41);
 }
+// ---
 
+/// uint
 camqp_element* camqp_decode_scalar_uint(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code) {
-	return NULL;
-}
+	uint64_t	data;
+	camqp_type	type;
+	uint8_t		offset;
 
+	camqp_byte* ptr = binary->bytes;
+
+	switch (type_code) {
+		case 0x50:
+			type = CAMQP_TYPE_UBYTE;
+			data = *ptr;
+			offset = 1;
+			break;
+		case 0x60:
+			type = CAMQP_TYPE_USHORT;
+			offset = 2;
+			uint16_t x16;
+			memcpy(&x16, ptr, offset);
+			data = ntohs(x16);
+			break;
+		case 0x70:
+			type = CAMQP_TYPE_UINT;
+			offset = 4;
+			uint32_t x32;
+			memcpy(&x32, ptr, offset);
+			data = ntohl(x32);
+			break;
+		case 0x80:
+			type = CAMQP_TYPE_ULONG;
+			offset = 8;
+			uint64_t x64;
+			memcpy(&x64, ptr, offset);
+			data = ntohll(x64);
+			break;
+
+		default:
+			return NULL;
+	}
+
+	// create element
+	camqp_scalar* el = camqp_scalar_uint(context, type, data);
+	if (!el)
+		return NULL;
+
+	// shift left
+	left->bytes += offset;
+	left->size -= offset;
+
+	return (camqp_element*) el;
+}
+// ---
+
+/// int
 camqp_element* camqp_decode_scalar_int(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code) {
-	return NULL;
-}
+	int64_t		data;
+	camqp_type	type;
+	uint8_t		offset;
 
+	camqp_byte* ptr = binary->bytes;
+
+	switch (type_code) {
+		case 0x51:
+			type = CAMQP_TYPE_BYTE;
+			data = (int64_t) fromtc8(*ptr);
+			offset = 1;
+			break;
+		case 0x61:
+			type = CAMQP_TYPE_SHORT;
+			offset = 2;
+			uint16_t x16;
+			memcpy(&x16, ptr, offset);
+			x16 = ntohs(x16);
+			data = (int64_t) fromtc16(x16);
+			break;
+		case 0x71:
+			type = CAMQP_TYPE_INT;
+			offset = 4;
+			uint32_t x32;
+			memcpy(&x32, ptr, offset);
+			x32 = ntohl(x32);
+			data = (int64_t) fromtc32(x32);
+			break;
+		case 0x81:
+			type = CAMQP_TYPE_LONG;
+			offset = 8;
+			uint64_t x64;
+			memcpy(&x64, ptr, offset);
+			x64 = ntohll(x64);
+			data = fromtc64(x64);
+			break;
+
+		default:
+			return NULL;
+	}
+
+	// create element
+	camqp_scalar* el = camqp_scalar_int(context, type, data);
+	if (!el)
+		return NULL;
+
+	// shift left
+	left->bytes += offset;
+	left->size -= offset;
+
+	return (camqp_element*) el;
+}
+// ---
+
+/// float
 camqp_element* camqp_decode_scalar_float(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code) {
-	return NULL;
-}
+	camqp_type	type;
+	uint8_t		offset = 4;
 
+	switch (type_code) {
+		case 0x72:
+			type = CAMQP_TYPE_FLOAT;
+			break;
+		case 0x74:
+			type = CAMQP_TYPE_DECIMAL32;
+			break;
+
+		default:
+			return NULL;
+	}
+
+	// copy data
+	uint32_t x;
+	memcpy(&x, binary->bytes, offset);
+	x = ntohl(x);
+	float* y = (float*) &x;
+	float data = *y;
+
+	// create element
+	camqp_scalar* el = camqp_scalar_float(context, type, data);
+	if (!el)
+		return NULL;
+
+	// shift left
+	left->bytes += offset;
+	left->size -= offset;
+
+	return (camqp_element*) el;
+}
+// ---
+
+/// double
 camqp_element* camqp_decode_scalar_double(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code) {
-	return NULL;
-}
+	camqp_type	type;
+	uint8_t		offset = 8;
 
+	switch (type_code) {
+		case 0x82:
+			type = CAMQP_TYPE_DOUBLE;
+			break;
+		case 0x84:
+			type = CAMQP_TYPE_DECIMAL64;
+			break;
+
+		default:
+			return NULL;
+	}
+
+	// copy data
+	uint64_t x;
+	memcpy(&x, binary->bytes, offset);
+	x = ntohll(x);
+	double* y = (double*) &x;
+	double data = *y;
+
+	// create element
+	camqp_scalar* el = camqp_scalar_double(context, type, data);
+	if (!el)
+		return NULL;
+
+	// shift left
+	left->bytes += offset;
+	left->size -= offset;
+
+	return (camqp_element*) el;
+}
+// ---
+
+/// uuid
 camqp_element* camqp_decode_scalar_uuid(camqp_context* context, camqp_data* binary, camqp_data* left) {
 	// check
 	if (binary->size < 16)
@@ -190,6 +363,7 @@ camqp_element* camqp_decode_scalar_uuid(camqp_context* context, camqp_data* bina
 
 	return (camqp_element*) tp;
 }
+// ---
 
 /// binary
 camqp_element* camqp_decode_scalar_binary(camqp_context* context, camqp_data* binary, camqp_data* left, camqp_byte type_code) {
@@ -295,10 +469,10 @@ camqp_element* camqp_decode_scalar_string(camqp_context* context, camqp_data* bi
 
 	// create element
 	camqp_scalar* element = camqp_scalar_string(context, scalar_type, data);
-	if (!element) {
-		camqp_util_free(data);
+	camqp_util_free(data);
+
+	if (!element)
 		return NULL;
-	}
 
 	left->bytes = binary->bytes + header_size + string_len;
 	left->size = binary->size - (header_size + string_len);

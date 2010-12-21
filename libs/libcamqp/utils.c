@@ -93,7 +93,7 @@ bool camqp_is_numeric(const camqp_char* string) {
 	return ret;
 }
 
-uint64_t twos_complement(int64_t nr) {
+uint64_t totc(int64_t nr) {
 	// positive
 	if (nr >= 0)
 		return nr;
@@ -102,5 +102,70 @@ uint64_t twos_complement(int64_t nr) {
 	uint64_t nu = llabs(nr) ^ 0xFFFFFFFFFFFFFFFF;
 	return nu + 0x01;
 }
+
+int8_t fromtc8(uint8_t nr) {
+	int8_t ret;
+
+	bool negative = (nr & 0x80) != 0;
+	if (negative) {
+		uint8_t wk = nr ^ 0xFF;
+		wk++;
+		ret = -wk;
+	} else {
+		// positive
+		ret = (int8_t) nr;
+	}
+
+	return ret;
+}
+
+int16_t fromtc16(uint16_t nr) {
+	int16_t ret;
+
+	bool negative = (nr & 0x8000) != 0;
+	if (negative) {
+		uint16_t wk = nr ^ 0xFFFF;
+		wk++;
+		ret = -wk;
+	} else {
+		// positive
+		ret = (int16_t) nr;
+	}
+
+	return ret;
+}
+
+int32_t fromtc32(uint32_t nr) {
+	int32_t ret;
+
+	bool negative = (nr & 0x80000000) != 0;
+	if (negative) {
+		uint32_t wk = nr ^ 0xFFFFFFFF;
+		wk++;
+		ret = -wk;
+	} else {
+		// positive
+		ret = (int32_t) nr;
+	}
+
+	return ret;
+}
+
+int64_t fromtc64(uint64_t nr) {
+	int64_t ret;
+
+	bool negative = (nr & 0x8000000000000000) != 0;
+	if (negative) {
+		uint64_t wk = nr ^ 0xFFFFFFFFFFFFFFFF;
+		wk++;
+		ret = -wk;
+	} else {
+		// positive
+		ret = (int64_t) nr;
+	}
+
+	return ret;
+}
+
 // ---
 

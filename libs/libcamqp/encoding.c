@@ -192,30 +192,30 @@ void camqp_encode_scalar_int(camqp_scalar* element, camqp_data** buffer) {
 	uint8_t len = 0;
 	if (element->base.type == CAMQP_TYPE_BYTE) {
 		len = 2;
-		uint8_t conv = (uint8_t) twos_complement(element->data.i);
+		uint8_t conv = (uint8_t) totc(element->data.i);
 		memcpy(wk, "\x51", 1);
 		memcpy(wk+1, &conv, 1);
 	} else if (element->base.type == CAMQP_TYPE_SHORT) {
 		len = 3;
-		uint16_t conv1 = (uint16_t) twos_complement(element->data.i);
+		uint16_t conv1 = (uint16_t) totc(element->data.i);
 		uint16_t conv = htons(conv1);
 		memcpy(wk, "\x61", 1);
 		memcpy(wk+1, (void*) &conv, 2);
 	} else if (element->base.type == CAMQP_TYPE_INT) {
 		len = 5;
-		uint32_t conv1 = (uint32_t) twos_complement(element->data.i);
+		uint32_t conv1 = (uint32_t) totc(element->data.i);
 		uint32_t conv = htonl(conv1);
 		memcpy(wk, "\x71", 1);
 		memcpy(wk+1, (void*) &conv, 4);
 	} else if (element->base.type == CAMQP_TYPE_LONG) {
 		len = 9;
-		uint64_t conv1 = twos_complement(element->data.i);
+		uint64_t conv1 = totc(element->data.i);
 		uint64_t conv = htonll(conv1);
 		memcpy(wk, "\x81", 1);
 		memcpy(wk+1, (void*) &conv, 8);
 	} else if (element->base.type == CAMQP_TYPE_TIMESTAMP) {
 		len = 9;
-		uint64_t conv1 = twos_complement(element->data.i);
+		uint64_t conv1 = totc(element->data.i);
 		uint64_t conv = htonll(conv1);
 		memcpy(wk, "\x83", 1);
 		memcpy(wk+1, (void*) &conv, 8);

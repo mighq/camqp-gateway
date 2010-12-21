@@ -11,10 +11,19 @@ camqp_char*			camqp_data_dump(camqp_data* data);
 // ---
 
 /// conversions
+
 // TODO: what about other platforms?
-#define ntohll(x) ( ( (uint64_t)(ntohl( (uint32_t)((x << 32) >> 32) )) << 32) | ntohl( ((uint32_t)(x >> 32)) ) )
-#define htonll(x) ntohll(x)
-uint64_t		twos_complement(int64_t nr);
+
+// 64bit byte swapping
+#define		ntohll(x) ( ( (uint64_t)(ntohl( (uint32_t)((x << 32) >> 32) )) << 32) | ntohl( ((uint32_t)(x >> 32)) ) )
+#define		htonll(x) ntohll(x)
+
+// two's complement
+uint64_t	totc(int64_t nr);
+int8_t		fromtc8(uint8_t nr);
+int16_t		fromtc16(uint16_t nr);
+int32_t		fromtc32(uint32_t nr);
+int64_t		fromtc64(uint64_t nr);
 // ---
 
 /// new & free
