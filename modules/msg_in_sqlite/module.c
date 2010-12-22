@@ -7,10 +7,46 @@
 
 #include <arpa/inet.h> // htonl
 
+#include <camqp.h>
+
 static module_info*					g_module_info;
 static module_vtable_msg_input*		g_vtable;
 
 static sqlite3*						g_db_i;
+
+static camqp_context*				g_context_msg;
+static camqp_context*				g_context_sms;
+
+char* dump_data(unsigned char* pointer, unsigned int length)
+{
+	if (pointer == NULL || length == 0)
+		return NULL;
+
+	char* ret = malloc(length*5+1);
+	if (!ret)
+		return NULL;
+
+	memset(ret, '_', length*5);
+
+	unsigned int i;
+	for (i = 0; i < length; i++) {
+		memcpy(ret+(5*i), "0x", 2);
+		ret[5*i + 2] = "0123456789ABCDEF"[pointer[i] >> 4];
+		ret[5*i + 3] = "0123456789ABCDEF"[pointer[i] & 0x0F];
+		ret[5*i + 4] = ' ';
+	}
+	ret[length*5] = 0x00;
+
+	return ret;
+}
+
+camqp_char* camqp_data_dump(camqp_data* data) {
+	if (data == NULL)
+		return NULL;
+
+	return (camqp_char*) dump_data(data->bytes, data->size);
+}
+
 
 // exported functions
 module_producer_type msg_in_sqlite_producer_type() { return MODULE_PRODUCER_TYPE_PULL; }
@@ -86,10 +122,31 @@ void msg_in_sqlite_init() {
 
 	// free file name
 	g_free(db_file_name);
+
+	// --- initialize contexts
+	gchar* proto_1 = g_build_filename(
+			(gchar*) g_hash_table_lookup(opts, "program"),
+			"protocols",
+			"messaging-v1.0.xml",
+			NULL
+	);
+	g_context_msg = camqp_context_new((camqp_char*) "messaging-v1.0", (camqp_char*) proto_1);
+	g_free(proto_1);
+
+	gchar* proto_2 = g_build_filename(
+			(gchar*) g_hash_table_lookup(opts, "program"),
+			"protocols",
+			"sms-v1.0.xml",
+			NULL
+	);
+	g_context_sms = camqp_context_new((camqp_char*) "sms-v1.0", (camqp_char*) proto_2);
+	g_free(proto_2);
 }
 
 void  msg_in_sqlite_destroy() {
 	sqlite3_close(g_db_i);
+	camqp_context_free(g_context_sms);
+	camqp_context_free(g_context_msg);
 }
 
 //---
@@ -158,7 +215,6 @@ message_batch* msg_in_sqlite_handler_pull_forward() {
 
 			// treat current row
 			gint32 msg_pk = sqlite3_column_int(st1, 0);
-			guint32 tmp = htonl(msg_pk);
 
 			gchar* msg_sender = (gchar*) sqlite3_column_text(st1, 1);
 			gchar* msg_recipient = (gchar*) sqlite3_column_text(st1, 2);
@@ -166,14 +222,29 @@ message_batch* msg_in_sqlite_handler_pull_forward() {
 
 			g_print("new sms to send %d:%s:%s:%s\n", msg_pk, msg_sender, msg_recipient, msg_text);
 
-			g_byte_array_append(msg, (guint8*) &tmp,	4);
-			g_byte_array_append(msg, (guint8*) "\x00",	1);
-			g_byte_array_append(msg, (guint8*) msg_sender, strlen(msg_sender));
-			g_byte_array_append(msg, (guint8*) "\x00",	1);
-			g_byte_array_append(msg, (guint8*) msg_recipient, strlen(msg_recipient));
-			g_byte_array_append(msg, (guint8*) "\x00",	1);
-			g_byte_array_append(msg, (guint8*) msg_text, strlen(msg_text));
-			g_byte_array_append(msg, (guint8*) "\x00",	1);
+			// encode sms
+			camqp_data* encoded_sms;
+			camqp_composite* sms = camqp_composite_new(g_context_sms, (camqp_char*) "sms", 0);
+			camqp_composite_field_put(sms, (camqp_char*) "id", (camqp_element*) camqp_scalar_uint(g_context_sms, CAMQP_TYPE_UINT, msg_pk));
+			camqp_composite_field_put(sms, (camqp_char*) "sender", (camqp_element*) camqp_scalar_string(g_context_sms, CAMQP_TYPE_STRING, (camqp_char*) msg_sender));
+			camqp_composite_field_put(sms, (camqp_char*) "recipient", (camqp_element*) camqp_scalar_string(g_context_sms, CAMQP_TYPE_STRING, (camqp_char*) msg_recipient));
+			camqp_composite_field_put(sms, (camqp_char*) "text", (camqp_element*) camqp_scalar_string(g_context_sms, CAMQP_TYPE_STRING, (camqp_char*) msg_text));
+			encoded_sms = camqp_element_encode((camqp_element*) sms);
+			camqp_element_free((camqp_element*) sms);
+
+			// encode message
+			camqp_data* encoded_msg;
+			camqp_composite* x_msg = camqp_composite_new(g_context_msg, (camqp_char*) "request", 0);
+			camqp_composite_field_put(x_msg, (camqp_char*) "id", (camqp_element*) camqp_scalar_uuid(g_context_msg));
+			camqp_composite_field_put(x_msg, (camqp_char*) "protocol", (camqp_element*) camqp_scalar_string(g_context_msg, CAMQP_TYPE_STRING, (camqp_char*) "sms-v1.0"));
+			camqp_composite_field_put(x_msg, (camqp_char*) "content", (camqp_element*) camqp_scalar_binary(g_context_msg, encoded_sms));
+			camqp_data_free(encoded_sms);
+			encoded_msg = camqp_element_encode((camqp_element*) x_msg);
+			camqp_element_free((camqp_element*) x_msg);
+
+			g_byte_array_append(msg, (guint8*) encoded_msg->bytes, encoded_msg->size);
+
+			camqp_data_free(encoded_msg);
 
 			// update entry to "sending" state
 			sqlite3_bind_int(st2, 1, msg_pk);
@@ -202,11 +273,56 @@ message_batch* msg_in_sqlite_handler_pull_forward() {
 gboolean msg_in_sqlite_handler_receive_feedback(const message* const data) {
 	g_print("received feedback [%p]\n", data);
 
-	guint32 tmp = *((guint32*) &data->data[0]);
-	guint32 msg_pk = ntohl(tmp);
-	gboolean msg_result = (data->data[5] != '0');
+	guint32 msg_pk;
+	gboolean msg_result;
 
-	g_print("reply pk = %d: %d\n", msg_pk, msg_result);
+	// --- parsing
+	camqp_data left;
+	camqp_data to_parse;
+	to_parse.bytes = data->data;
+	to_parse.size = data->len;
+
+	camqp_element* el_req1 = camqp_element_decode(g_context_msg, &to_parse, &left);
+	if (!el_req1)
+		return FALSE;
+
+	if (!camqp_element_is_composite(el_req1)) {
+		camqp_element_free((camqp_element*) el_req1);
+		return FALSE;
+	}
+
+	camqp_composite* el_req2 = (camqp_composite*) el_req1;
+
+	camqp_element* field;
+
+	// save content
+	field = camqp_composite_field_get(el_req2, (camqp_char*) "content");
+	camqp_data* content_data = camqp_value_binary(field);
+
+	// parse request
+	camqp_element* el_req3 = camqp_element_decode(g_context_sms, content_data, &left);
+	camqp_element_free((camqp_element*) el_req1);
+	if (!el_req3) {
+		return FALSE;
+	}
+
+	if (!camqp_element_is_composite(el_req3)) {
+		camqp_element_free((camqp_element*) el_req3);
+		return FALSE;
+	}
+
+	camqp_composite* el_req4 = (camqp_composite*) el_req3;
+
+	// get fields
+	field = camqp_composite_field_get(el_req4, (camqp_char*) "id");
+	msg_pk = (gint32) camqp_value_uint(field);
+
+	field = camqp_composite_field_get(el_req4, (camqp_char*) "result");
+	msg_result = (gboolean) camqp_value_bool(field);
+
+//	g_print("reply pk = %d: %d\n", msg_pk, msg_result);
+
+	// --- treating
 
 	// current timestamp
 	GTimeVal now_t;

@@ -1,5 +1,6 @@
 #include <api_module_msg_output.h>
 #include <api_core_messaging.h>
+#include <api_core_options.h>
 #include <api_core.h>
 
 #include <stdlib.h>
@@ -14,6 +15,8 @@
 
 #include <errno.h>
 
+#include <camqp.h>
+
 #include <smpp34.h>
 #include <smpp34_structs.h>
 #include <smpp34_params.h>
@@ -26,12 +29,68 @@ static GMutex*						g_lck_switch;
 
 static message_batch*				acks;
 
+static camqp_context*				g_context_msg;
+static camqp_context*				g_context_sms;
+
+
 gint								g_socket;
 
 	extern int  smpp34_errno;
 	extern char smpp34_strerror[2048];
+/*
+char* dump_data(unsigned char* pointer, unsigned int length)
+{
+	if (pointer == NULL || length == 0)
+		return NULL;
+
+	char* ret = malloc(length*5+1);
+	if (!ret)
+		return NULL;
+
+	memset(ret, '_', length*5);
+
+	unsigned int i;
+	for (i = 0; i < length; i++) {
+		memcpy(ret+(5*i), "0x", 2);
+		ret[5*i + 2] = "0123456789ABCDEF"[pointer[i] >> 4];
+		ret[5*i + 3] = "0123456789ABCDEF"[pointer[i] & 0x0F];
+		ret[5*i + 4] = ' ';
+	}
+	ret[length*5] = 0x00;
+
+	return ret;
+}
+
+camqp_char* camqp_data_dump(camqp_data* data) {
+	if (data == NULL)
+		return NULL;
+
+	return (camqp_char*) dump_data(data->bytes, data->size);
+}
+*/
 
 void msg_out_smpp_init() {
+	GHashTable* opts = core_options_get();
+
+	// --- initialize contexts
+	gchar* proto_1 = g_build_filename(
+			(gchar*) g_hash_table_lookup(opts, "program"),
+			"protocols",
+			"messaging-v1.0.xml",
+			NULL
+	);
+	g_context_msg = camqp_context_new((camqp_char*) "messaging-v1.0", (camqp_char*) proto_1);
+	g_free(proto_1);
+
+	gchar* proto_2 = g_build_filename(
+			(gchar*) g_hash_table_lookup(opts, "program"),
+			"protocols",
+			"sms-v1.0.xml",
+			NULL
+	);
+	g_context_sms = camqp_context_new((camqp_char*) "sms-v1.0", (camqp_char*) proto_2);
+	g_free(proto_2);
+
 	// connect to SMSC
 	g_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (g_socket == -1) {
@@ -92,6 +151,9 @@ void msg_out_smpp_init() {
 }
 
 void msg_out_smpp_destroy() {
+	camqp_context_free(g_context_sms);
+	camqp_context_free(g_context_msg);
+
 	// === unbind
 
 	//---
@@ -149,27 +211,64 @@ void msg_out_smpp_terminate_blocking(thread_type thread) {
 gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 	g_print("received out [%p]\n", data);
 
-	// === parse data
+	gint32 msg_pk;
 	gchar* txt_sender = NULL;
 	gchar* txt_recipient = NULL;
 	gchar* txt_text = NULL;
 
-	guint32 tmp = *((guint32*) &data->data[0]);
-	guint32 msg_pk = ntohl(tmp);
+	// === parse data
+	camqp_data left;
+	camqp_data to_parse;
+	to_parse.bytes = data->data;
+	to_parse.size = data->len;
 
-	txt_sender = (gchar*) &data->data[5];
+	camqp_element* el_req1 = camqp_element_decode(g_context_msg, &to_parse, &left);
+	if (!el_req1)
+		return FALSE;
 
-	for (txt_recipient = txt_sender; ; txt_recipient++) {
-		if (*txt_recipient == '\x00')
-			break;
+	if (!camqp_element_is_composite(el_req1)) {
+		camqp_element_free((camqp_element*) el_req1);
+		return FALSE;
 	}
-	txt_recipient++;
 
-	for (txt_text = txt_recipient; ; txt_text++) {
-		if (*txt_text == '\x00')
-			break;
+	camqp_composite* el_req2 = (camqp_composite*) el_req1;
+
+	// save uuid
+	camqp_element* field;
+	field = camqp_composite_field_get(el_req2, (camqp_char*) "id");
+	camqp_uuid* id_obj = camqp_value_uuid(field);
+	camqp_uuid request_id;
+	uuid_copy(request_id, *id_obj);
+
+	// save content
+	field = camqp_composite_field_get(el_req2, (camqp_char*) "content");
+	camqp_data* content_data = camqp_value_binary(field);
+
+	// parse request
+	camqp_element* el_req3 = camqp_element_decode(g_context_sms, content_data, &left);
+	camqp_element_free((camqp_element*) el_req1);
+	if (!el_req3) {
+		return FALSE;
 	}
-	txt_text++;
+
+	if (!camqp_element_is_composite(el_req3)) {
+		camqp_element_free((camqp_element*) el_req3);
+		return FALSE;
+	}
+
+	camqp_composite* el_req4 = (camqp_composite*) el_req3;
+
+	// get fields
+	field = camqp_composite_field_get(el_req4, (camqp_char*) "sender");
+	txt_sender = (gchar*) camqp_value_string(field);
+	field = camqp_composite_field_get(el_req4, (camqp_char*) "recipient");
+	txt_recipient = (gchar*) camqp_value_string(field);
+	field = camqp_composite_field_get(el_req4, (camqp_char*) "text");
+	txt_text = (gchar*) camqp_value_string(field);
+	field = camqp_composite_field_get(el_req4, (camqp_char*) "id");
+	msg_pk = (gint32) camqp_value_uint(field);
+
+//	printf("MOJKE:%d:%s:%s:%s\n", msg_pk, txt_sender, txt_recipient, txt_text);
 
 	// === send message
 
@@ -205,14 +304,40 @@ gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 		printf("Error in send(SUBMIT_SM)[%d:%d]\n", res.command_id, res.command_status);
 	};
 
+	camqp_element_free((camqp_element*) el_req3);
+
 	// === create reply message
+
+	// encode result
+	camqp_composite* x_res = camqp_composite_new(g_context_sms, (camqp_char*) "sms_response", 0);
+	camqp_composite_field_put(x_res, (camqp_char*) "id", (camqp_element*) camqp_scalar_uint(g_context_sms, CAMQP_TYPE_UINT, msg_pk));
+	camqp_composite_field_put(x_res, (camqp_char*) "result", (camqp_element*) camqp_scalar_bool(g_context_sms, send_success));
+	camqp_data* e_res = camqp_element_encode(x_res);
+	camqp_element_free(x_res);
+
+	// encode message
+	camqp_composite* x_msg = camqp_composite_new(g_context_msg, (camqp_char*) "response", 0);
+	camqp_composite_field_put(x_msg, (camqp_char*) "id", (camqp_element*) camqp_scalar_uuid(g_context_msg));
+	camqp_scalar* corr = camqp_scalar_uuid(g_context_msg);
+	uuid_copy(corr->data.uid, request_id);
+	camqp_composite_field_put(x_msg, (camqp_char*) "correlation", (camqp_element*) corr);
+	camqp_composite_field_put(x_msg, (camqp_char*) "protocol", (camqp_element*) camqp_scalar_string(g_context_msg, CAMQP_TYPE_STRING, (camqp_char*) "sms-v1.0"));
+	camqp_composite_field_put(x_msg, (camqp_char*) "content", (camqp_element*) camqp_scalar_binary(g_context_msg, e_res));
+	camqp_data_free(e_res);
+	camqp_data* e_msg = camqp_element_encode((camqp_element*) x_msg);
+	camqp_element_free((camqp_element*) x_msg);
+/*
+	{
+		camqp_char* dump = camqp_data_dump(e_msg);
+		printf("RESP:%s\n", dump);
+		camqp_util_free(dump);
+	}
+*/
 	message* msg = message_new();
 	g_print("generating reply msg [%p]\n", msg);
 
-	g_byte_array_append(msg, (guint8*) &data->data[0],		4); // sequence no of original
-	g_byte_array_append(msg, (guint8*) "\x00",				1);
-	g_byte_array_append(msg, (guint8*) (send_success ? "1" : "0"),	1); // ack/nack
-	g_byte_array_append(msg, (guint8*) "\x00",				1);
+	g_byte_array_append(msg, (guint8*) e_msg->bytes, e_msg->size);
+	camqp_data_free(e_msg);
 
 	// add to ack batch
 	g_mutex_lock(g_lck_switch);

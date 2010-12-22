@@ -5,6 +5,7 @@ DIR_ROOT=../..
 
 DIR_LIB_GLIB=/usr
 DIR_LIB_SQLITE=/usr
+DIR_LIB_CAMQP=../../libs/libcamqp
 
 DIR_DIST=${DIR_ROOT}/dist
 DIR_MODULES=${DIR_DIST}/modules
@@ -12,17 +13,21 @@ DIR_API=${DIR_ROOT}/api
 
 # dependencies
 INCLUDES=									\
+	-I/usr/include/libxml2					\
 	-I${DIR_LIB_GLIB}/include/glib-2.0		\
 	-I${DIR_LIB_GLIB}/lib/glib-2.0/include	\
 	-I${DIR_LIB_SQLITE}/include				\
+	-I${DIR_LIB_CAMQP}/include				\
 	-I${DIR_API}
 
-LIBS=					\
-	-L${DIR_GLIB}/lib	\
-		-lglib-2.0		\
-		-lgthread-2.0	\
-		-lgmodule-2.0	\
-		-lsqlite3
+LIBS=						\
+	-L${DIR_GLIB}/lib		\
+	-L${DIR_LIB_CAMQP}/lib	\
+		-lglib-2.0			\
+		-lgthread-2.0		\
+		-lgmodule-2.0		\
+		-lsqlite3			\
+		-lcamqp
 
 # environment
 CC=gcc
