@@ -16,9 +16,17 @@
 		<type name="sms" class="composite" source="list">
 			<descriptor code="0x00000001"/>
 
+			<field name="id" type="uint"/>
 			<field name="sender" type="string" mandatory="true"/>
 			<field name="recipient" type="string" mandatory="true"/>
 			<field name="text" type="string" mandatory="true"/>
+		</type>
+
+		<type name="sms_response" class="composite" source="list">
+			<descriptor code="0x00000002"/>
+
+			<field name="id" type="uint" mandatory="true"/>
+			<field name="result" type="boolean" mandatory="true"/>
 		</type>
 	</section>
 </amqp>
