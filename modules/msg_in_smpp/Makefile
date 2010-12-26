@@ -9,21 +9,26 @@ DIR_LIB_SMPP=${DIR_ROOT}/libs/libsmpp34
 DIR_DIST=${DIR_ROOT}/dist
 DIR_MODULES=${DIR_DIST}/modules
 DIR_API=${DIR_ROOT}/api
+DIR_LIB_CAMQP=../../libs/libcamqp
 
 # dependencies
 INCLUDES=									\
 	-I${DIR_LIB_GLIB}/include/glib-2.0		\
 	-I${DIR_LIB_GLIB}/lib/glib-2.0/include	\
 	-I${DIR_LIB_SMPP}/include				\
-	-I${DIR_API}
+	-I${DIR_API}							\
+	-I/usr/include/libxml2					\
+	-I${DIR_LIB_CAMQP}/include
 
 LIBS=						\
 	-L${DIR_GLIB}/lib		\
 	-L${DIR_LIB_SMPP}/lib	\
+	-L${DIR_LIB_CAMQP}/lib	\
 		-lglib-2.0			\
 		-lgthread-2.0		\
 		-lgmodule-2.0		\
-		-lsmpp34
+		-lsmpp34			\
+		-lcamqp
 
 # environment
 CC=gcc

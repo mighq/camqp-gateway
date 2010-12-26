@@ -5,7 +5,10 @@
 
 #include <stdlib.h>
 #include <string.h>
+
 #include <sqlite3.h>
+
+#include <camqp.h>
 
 static module_info*					g_module_info;
 static module_vtable_msg_output*	g_vtable;
@@ -15,6 +18,41 @@ static GMutex*						g_lck_switch;
 
 static sqlite3*						g_db_o;
 static message_batch*				acks;
+
+static camqp_context*				g_context_msg;
+static camqp_context*				g_context_sms;
+
+
+char* dump_data(unsigned char* pointer, unsigned int length)
+{
+	if (pointer == NULL || length == 0)
+		return NULL;
+
+	char* ret = malloc(length*5+1);
+	if (!ret)
+		return NULL;
+
+	memset(ret, '_', length*5);
+
+	unsigned int i;
+	for (i = 0; i < length; i++) {
+		memcpy(ret+(5*i), "0x", 2);
+		ret[5*i + 2] = "0123456789ABCDEF"[pointer[i] >> 4];
+		ret[5*i + 3] = "0123456789ABCDEF"[pointer[i] & 0x0F];
+		ret[5*i + 4] = ' ';
+	}
+	ret[length*5] = 0x00;
+
+	return ret;
+}
+
+camqp_char* camqp_data_dump(camqp_data* data) {
+	if (data == NULL)
+		return NULL;
+
+	return (camqp_char*) dump_data(data->bytes, data->size);
+}
+
 
 // exported functions
 module_producer_type msg_out_sqlite_producer_type() { return MODULE_PRODUCER_TYPE_PUSH; }
@@ -101,19 +139,58 @@ gboolean msg_out_sqlite_handler_receive_forward(const message* const data) {
 	gchar* txt_recipient = NULL;
 	gchar* txt_text = NULL;
 
-	txt_sender = (gchar*) &data->data[5];
+	// decode
+	camqp_data left;
+	camqp_data to_parse;
+	to_parse.bytes = data->data;
+	to_parse.size = data->len;
 
-	for (txt_recipient = txt_sender; ; txt_recipient++) {
-		if (*txt_recipient == '\x00')
-			break;
-	}
-	txt_recipient++;
+	camqp_element* el_req1 = camqp_element_decode(g_context_msg, &to_parse, &left);
+	if (!el_req1)
+		return FALSE;
 
-	for (txt_text = txt_recipient; ; txt_text++) {
-		if (*txt_text == '\x00')
-			break;
+	if (!camqp_element_is_composite(el_req1)) {
+		camqp_element_free((camqp_element*) el_req1);
+		return FALSE;
 	}
-	txt_text++;
+
+	camqp_composite* el_req2 = (camqp_composite*) el_req1;
+
+	// save uuid & PK
+	camqp_element* field;
+	field = camqp_composite_field_get(el_req2, (camqp_char*) "id");
+	const camqp_uuid* id_obj = camqp_value_uuid(field);
+	camqp_uuid request_id;
+	uuid_copy(request_id, *id_obj);
+	gint32 msg_pk;
+
+	// save content
+	field = camqp_composite_field_get(el_req2, (camqp_char*) "content");
+	camqp_data* content_data = camqp_value_binary(field);
+
+	// parse request
+	camqp_element* el_req3 = camqp_element_decode(g_context_sms, content_data, &left);
+	camqp_element_free((camqp_element*) el_req1);
+	if (!el_req3) {
+		return FALSE;
+	}
+
+	if (!camqp_element_is_composite(el_req3)) {
+		camqp_element_free((camqp_element*) el_req3);
+		return FALSE;
+	}
+
+	camqp_composite* el_req4 = (camqp_composite*) el_req3;
+
+	// get fields
+	field = camqp_composite_field_get(el_req4, (camqp_char*) "sender");
+	txt_sender = (gchar*) camqp_value_string(field);
+	field = camqp_composite_field_get(el_req4, (camqp_char*) "recipient");
+	txt_recipient = (gchar*) camqp_value_string(field);
+	field = camqp_composite_field_get(el_req4, (camqp_char*) "text");
+	txt_text = (gchar*) camqp_value_string(field);
+	field = camqp_composite_field_get(el_req4, (camqp_char*) "id");
+	msg_pk = (gint32) camqp_value_uint(field);
 
 	// current timestamp
 	GTimeVal now_t;
@@ -167,13 +244,32 @@ gboolean msg_out_sqlite_handler_receive_forward(const message* const data) {
 	db_query_empty("COMMIT");
 
 	// create reply message
+	gboolean send_success = TRUE;
+
+	// encode result
+	camqp_composite* x_res = camqp_composite_new(g_context_sms, (camqp_char*) "sms_response", 0);
+	camqp_composite_field_put(x_res, (camqp_char*) "id", (camqp_element*) camqp_scalar_uint(g_context_sms, CAMQP_TYPE_UINT, msg_pk));
+	camqp_composite_field_put(x_res, (camqp_char*) "result", (camqp_element*) camqp_scalar_bool(g_context_sms, send_success));
+	camqp_data* e_res = camqp_element_encode((camqp_element*) x_res);
+	camqp_element_free((camqp_element*) x_res);
+
+	// encode message
+	camqp_composite* x_msg = camqp_composite_new(g_context_msg, (camqp_char*) "response", 0);
+	camqp_composite_field_put(x_msg, (camqp_char*) "id", (camqp_element*) camqp_scalar_uuid(g_context_msg));
+	camqp_scalar* corr = camqp_scalar_uuid(g_context_msg);
+	uuid_copy(corr->data.uid, request_id);
+	camqp_composite_field_put(x_msg, (camqp_char*) "correlation", (camqp_element*) corr);
+	camqp_composite_field_put(x_msg, (camqp_char*) "protocol", (camqp_element*) camqp_scalar_string(g_context_msg, CAMQP_TYPE_STRING, (camqp_char*) "sms-v1.0"));
+	camqp_composite_field_put(x_msg, (camqp_char*) "content", (camqp_element*) camqp_scalar_binary(g_context_msg, e_res));
+	camqp_data_free(e_res);
+	camqp_data* e_msg = camqp_element_encode((camqp_element*) x_msg);
+	camqp_element_free((camqp_element*) x_msg);
+
 	message* msg = message_new();
 	g_print("generating reply msg [%p]\n", msg);
 
-	g_byte_array_append(msg, (guint8*) &data->data[0],	4); // sequence no of original
-	g_byte_array_append(msg, (guint8*) "\x00",			1);
-	g_byte_array_append(msg, (guint8*) "1",				1); // positive ack
-	g_byte_array_append(msg, (guint8*) "\x00",			1);
+	g_byte_array_append(msg, (guint8*) e_msg->bytes, e_msg->size);
+	camqp_data_free(e_msg);
 
 	// add to ack batch
 	g_mutex_lock(g_lck_switch);
@@ -241,10 +337,32 @@ void msg_out_sqlite_init() {
 
 	// free file name
 	g_free(db_file_name);
+
+	// -- initialize contexts
+	gchar* proto_1 = g_build_filename(
+			(gchar*) g_hash_table_lookup(opts, "program"),
+			"protocols",
+			"messaging-v1.0.xml",
+			NULL
+	);
+	g_context_msg = camqp_context_new((camqp_char*) "messaging-v1.0", (camqp_char*) proto_1);
+	g_free(proto_1);
+
+	gchar* proto_2 = g_build_filename(
+			(gchar*) g_hash_table_lookup(opts, "program"),
+			"protocols",
+			"sms-v1.0.xml",
+			NULL
+	);
+	g_context_sms = camqp_context_new((camqp_char*) "sms-v1.0", (camqp_char*) proto_2);
+	g_free(proto_2);
 }
 
 void  msg_out_sqlite_destroy() {
 	sqlite3_close(g_db_o);
+
+	camqp_context_free(g_context_sms);
+	camqp_context_free(g_context_msg);
 }
 
 // module interface
