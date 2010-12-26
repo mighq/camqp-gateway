@@ -3,6 +3,8 @@
 
 #include <glib.h>
 
+#include <syslog.h>
+
 #ifndef DLLIMPORT
 #define DLLIMPORT extern
 #endif
