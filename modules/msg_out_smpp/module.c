@@ -32,47 +32,17 @@ static message_batch*				acks;
 static camqp_context*				g_context_msg;
 static camqp_context*				g_context_sms;
 
+guint								g_state;
 
 gint								g_socket;
 
 	extern int  smpp34_errno;
 	extern char smpp34_strerror[2048];
-/*
-char* dump_data(unsigned char* pointer, unsigned int length)
-{
-	if (pointer == NULL || length == 0)
-		return NULL;
-
-	char* ret = malloc(length*5+1);
-	if (!ret)
-		return NULL;
-
-	memset(ret, '_', length*5);
-
-	unsigned int i;
-	for (i = 0; i < length; i++) {
-		memcpy(ret+(5*i), "0x", 2);
-		ret[5*i + 2] = "0123456789ABCDEF"[pointer[i] >> 4];
-		ret[5*i + 3] = "0123456789ABCDEF"[pointer[i] & 0x0F];
-		ret[5*i + 4] = ' ';
-	}
-	ret[length*5] = 0x00;
-
-	return ret;
-}
-
-camqp_char* camqp_data_dump(camqp_data* data) {
-	if (data == NULL)
-		return NULL;
-
-	return (camqp_char*) dump_data(data->bytes, data->size);
-}
-*/
 
 void msg_out_smpp_init() {
 	GHashTable* opts = core_options_get();
 
-	// --- initialize contexts
+	// -- initialize contexts
 	gchar* proto_1 = g_build_filename(
 			(gchar*) g_hash_table_lookup(opts, "program"),
 			"protocols",
@@ -91,6 +61,8 @@ void msg_out_smpp_init() {
 	g_context_sms = camqp_context_new((camqp_char*) "sms-v1.0", (camqp_char*) proto_2);
 	g_free(proto_2);
 
+	g_state = 0;
+
 	// connect to SMSC
 	g_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (g_socket == -1) {
@@ -98,13 +70,19 @@ void msg_out_smpp_init() {
 		return;
 	};
 
+	// connection configuration
+	gchar* listen_ip =		core_config_get_text("msg_out_smpp", "connect_ip");
+	guint32 listen_port =	core_config_get_int("msg_out_smpp", "connect_port");
+
 	struct sockaddr_in address;
 	socklen_t addr_len = sizeof(address);
 	memset(&address, '\x00', addr_len);
 
 	address.sin_family =		PF_INET;
-	address.sin_port =			htons(8001);
-	address.sin_addr.s_addr =	inet_addr("192.168.108.2");
+	address.sin_port =			htons(listen_port);
+	address.sin_addr.s_addr =	inet_addr(listen_ip);
+
+	g_free(listen_ip);
 
 	if (connect(g_socket, (struct sockaddr*) &address, addr_len) != 0){
 		g_print("Error in connect %d\n", errno);
@@ -112,14 +90,16 @@ void msg_out_smpp_init() {
 		return;
 	};
 
+	g_state = 1;
+
 	// === bind as transmiter
 
-	//---
+	//--
 	bind_transmitter_t      req;
 	bind_transmitter_resp_t res;
 	memset(&req, 0, sizeof(bind_transmitter_t));
 	memset(&res, 0, sizeof(bind_transmitter_resp_t));
-	//---
+	//--
 	req.command_length   = 0;
 	req.command_id       = BIND_TRANSMITTER;
 	req.command_status   = ESME_ROK;
@@ -128,26 +108,28 @@ void msg_out_smpp_init() {
 	strcpy(req.password, "wpsd");
 	strcpy(req.system_type, "type01");
 	req.interface_version = SMPP_VERSION;
-	//---
+	//--
 	int ret = 0;
 	char local_buffer[1024];
 	int  local_buffer_len = 0;
 	char print_buffer[2048];
 	uint32_t tempo = 0;
 	uint32_t cmd_id = 0;
-	//---
+	//--
 #include "pack_and_send.inc"
-	//---
+	//--
 #include "recv_and_unpack.inc"
-	//---
+	//--
 	destroy_tlv( res.tlv );
-	//---
+	//--
 	if( res.command_id != BIND_TRANSMITTER_RESP ||
 			res.command_status != ESME_ROK ){
 		printf("Error in BIND(BIND_TRANSMITTER)[%d:%d]\n",
 				res.command_id, res.command_status);
 		return;
 	};
+
+	g_state = 2;
 }
 
 void msg_out_smpp_destroy() {
@@ -155,38 +137,44 @@ void msg_out_smpp_destroy() {
 	camqp_context_free(g_context_msg);
 
 	// === unbind
-
-	//---
-	unbind_t      req;
-	unbind_resp_t res;
-	memset(&req, 0, sizeof(unbind_t));
-	memset(&res, 0, sizeof(unbind_resp_t));
-	//---
-	req.command_length   = 0;
-	req.command_id       = UNBIND;
-	req.command_status   = ESME_ROK;
-	req.sequence_number  = 2; //TODO
-	//---
-	int ret = 0;
-	char local_buffer[1024];
-	int  local_buffer_len = 0;
-	char print_buffer[2048];
-	uint32_t tempo = 0;
-	uint32_t cmd_id = 0;
-	//---
+	if (g_state == 2) {
+		//--
+		unbind_t      req;
+		unbind_resp_t res;
+		memset(&req, 0, sizeof(unbind_t));
+		memset(&res, 0, sizeof(unbind_resp_t));
+		//--
+		req.command_length   = 0;
+		req.command_id       = UNBIND;
+		req.command_status   = ESME_ROK;
+		req.sequence_number  = 2; //TODO
+		//--
+		int ret = 0;
+		char local_buffer[1024];
+		int  local_buffer_len = 0;
+		char print_buffer[2048];
+		uint32_t tempo = 0;
+		uint32_t cmd_id = 0;
+		//--
 #include "pack_and_send.inc"
-	//---
+		//--
 #include "recv_and_unpack.inc"
-	//---
-	if( res.command_id != UNBIND_RESP ||
-			res.command_status != ESME_ROK ){
-		printf("Error in send(UNBIND)[%d:%d]\n",
-				res.command_id, res.command_status);
-		return;
-	};
+		//--
+		if( res.command_id != UNBIND_RESP ||
+				res.command_status != ESME_ROK ){
+			printf("Error in send(UNBIND)[%d:%d]\n",
+					res.command_id, res.command_status);
+			return;
+		};
 
-	// disconnect
-	close(g_socket);
+		g_state = 1;
+	}
+
+	if (g_state == 1) {
+		// disconnect
+		close(g_socket);
+		g_state = 0;
+	}
 }
 
 // exported functions
@@ -268,8 +256,6 @@ gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 	field = camqp_composite_field_get(el_req4, (camqp_char*) "id");
 	msg_pk = (gint32) camqp_value_uint(field);
 
-//	printf("MOJKE:%d:%s:%s:%s\n", msg_pk, txt_sender, txt_recipient, txt_text);
-
 	// === send message
 
 	//---
@@ -326,13 +312,7 @@ gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 	camqp_data_free(e_res);
 	camqp_data* e_msg = camqp_element_encode((camqp_element*) x_msg);
 	camqp_element_free((camqp_element*) x_msg);
-/*
-	{
-		camqp_char* dump = camqp_data_dump(e_msg);
-		printf("RESP:%s\n", dump);
-		camqp_util_free(dump);
-	}
-*/
+
 	message* msg = message_new();
 	g_print("generating reply msg [%p]\n", msg);
 

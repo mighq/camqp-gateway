@@ -11,6 +11,24 @@ INSERT INTO "group" (
 	"core"
 );
 
+-- msg_in_smpp
+INSERT INTO "group" (
+	"group_pk",
+	"name"
+) VALUES (
+	coalesce((SELECT max("group_pk")+1 FROM "group"), 1),
+	"msg_in_smpp"
+);
+
+-- msg_out_smpp
+INSERT INTO "group" (
+	"group_pk",
+	"name"
+) VALUES (
+	coalesce((SELECT max("group_pk")+1 FROM "group"), 1),
+	"msg_out_smpp"
+);
+
 -- === options
 
 -- core.log_module
@@ -85,6 +103,40 @@ INSERT INTO "option" (
 	'feedback_pull_timeout'
 );
 
--- 
+--
+
+INSERT INTO "option" (
+	"option_pk",
+	"name"
+) VALUES (
+	coalesce((SELECT max("option_pk")+1 FROM "option"), 1),
+	'listen_port'
+);
+
+INSERT INTO "option" (
+	"option_pk",
+	"name"
+) VALUES (
+	coalesce((SELECT max("option_pk")+1 FROM "option"), 1),
+	'listen_ip'
+);
+
+--
+
+INSERT INTO "option" (
+	"option_pk",
+	"name"
+) VALUES (
+	coalesce((SELECT max("option_pk")+1 FROM "option"), 1),
+	'connect_port'
+);
+
+INSERT INTO "option" (
+	"option_pk",
+	"name"
+) VALUES (
+	coalesce((SELECT max("option_pk")+1 FROM "option"), 1),
+	'connect_ip'
+);
 
 COMMIT;

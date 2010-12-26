@@ -138,4 +138,40 @@ INSERT INTO "setting" (
 	3000.000 -- miliseconds
 );
 
+INSERT INTO "setting" (
+	"setting_pk",
+	--
+	"instance_id",
+	"group_pk",
+	"option_pk",
+	--
+	"data_text"
+) VALUES (
+	coalesce((SELECT max("setting_pk")+1 FROM "setting"), 1),
+	--
+	2,
+	(SELECT "group_pk" FROM "group" WHERE "name" = 'msg_out_smpp'),
+	(SELECT "option_pk" FROM "option" WHERE "name" = 'connect_ip'),
+	--
+	'192.168.108.2'
+);
+
+INSERT INTO "setting" (
+	"setting_pk",
+	--
+	"instance_id",
+	"group_pk",
+	"option_pk",
+	--
+	"data_int"
+) VALUES (
+	coalesce((SELECT max("setting_pk")+1 FROM "setting"), 1),
+	--
+	2,
+	(SELECT "group_pk" FROM "group" WHERE "name" = 'msg_out_smpp'),
+	(SELECT "option_pk" FROM "option" WHERE "name" = 'connect_port'),
+	--
+	12346
+);
+
 COMMIT;
