@@ -1,5 +1,6 @@
 #include <api_module_msg_trash.h>
 #include <api_core_options.h>
+#include <api_core_log.h>
 
 #include <sqlite3.h>
 #include <string.h>
@@ -19,13 +20,17 @@ void msg_trash_sqlite_init() {
 	// create config DB file name
 	gchar* db_file_name = g_build_filename(
 			(gchar*) g_hash_table_lookup(opts, "program"),
+			"dbs",
 			"trash.db",
 			NULL
 	);
 
 	// check if exists
-	if (!g_file_test(db_file_name, G_FILE_TEST_IS_REGULAR))
-		g_error("Trash file '%s' doesn't exist!", db_file_name);
+	if (!g_file_test(db_file_name, G_FILE_TEST_IS_REGULAR)) {
+		gchar* wk = g_strdup_printf("Trash file '%s' doesn't exist!", db_file_name);
+		core_log("msg", LOG_CRIT, 1111, wk);
+		g_free(wk);
+	}
 
 	//
 	gint ret = 0;
@@ -33,7 +38,7 @@ void msg_trash_sqlite_init() {
 
 	ret = sqlite3_open(db_file_name, &g_db_t);
 	if (ret != SQLITE_OK)
-		g_error("Cannot open sqlite db!\n");
+		core_log("db", LOG_CRIT, 1111, "Cannot open sqlite db");
 
 	// free file name
 	g_free(db_file_name);
@@ -45,7 +50,7 @@ void  msg_trash_sqlite_destroy() {
 
 // exported functions
 gboolean msg_trash_sqlite_handler_receive_trash(const message* const data) {
-	g_print("received trash:%s [%p]\n", data->data, data);
+	core_log("msg", LOG_NOTICE, 1111, "received trash message");
 
 	// current timestamp
 	GTimeVal now_t;
@@ -89,7 +94,10 @@ gboolean msg_trash_sqlite_handler_receive_trash(const message* const data) {
 	g_free(query);
 
 	if (ret != SQLITE_OK) {
-		g_warning("Error '%d' during statement preparation: %s!", ret, sqlite3_errmsg(g_db_t));
+		gchar* wk = g_strdup_printf("Error '%d' during statement preparation: %s!", ret, sqlite3_errmsg(g_db_t));
+		core_log("db", LOG_CRIT, 1111, wk);
+		g_free(wk);
+
 		return FALSE;
 	}
 
@@ -99,7 +107,10 @@ gboolean msg_trash_sqlite_handler_receive_trash(const message* const data) {
 	sqlite3_finalize(stmt);
 
 	if (ret != SQLITE_DONE) {
-		g_warning("Unexpected result '%d' from DB insert!", ret);
+		gchar* wk = g_strdup_printf("Unexpected result '%d' from DB insert!", ret);
+		core_log("db", LOG_CRIT, 1111, wk);
+		g_free(wk);
+
 		return FALSE;
 	}
 

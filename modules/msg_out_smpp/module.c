@@ -3,6 +3,7 @@
 #include <api_core_options.h>
 #include <api_core_config.h>
 #include <api_core.h>
+#include <api_core_log.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -67,7 +68,7 @@ void msg_out_smpp_init() {
 	// connect to SMSC
 	g_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (g_socket == -1) {
-		g_print("Error in socket()\n");
+		core_log("net", LOG_ERR, 1111, "Error in socket()");
 		return;
 	};
 
@@ -83,11 +84,17 @@ void msg_out_smpp_init() {
 	address.sin_port =			htons(listen_port);
 	address.sin_addr.s_addr =	inet_addr(listen_ip);
 
+	{
+		gchar* wk = g_strdup_printf("connecting to SMPP server %s:%d", listen_ip, listen_port);
+		core_log("net", LOG_ERR, 1111, wk);
+		g_free(wk);
+	}
+
 	g_free(listen_ip);
 
 	if (connect(g_socket, (struct sockaddr*) &address, addr_len) != 0){
-		g_print("Error in connect %d\n", errno);
-		perror(NULL);
+		core_log("net", LOG_ERR, 1111, "Error in connect()");
+		//perror(NULL);
 		return;
 	};
 
@@ -125,8 +132,6 @@ void msg_out_smpp_init() {
 	//--
 	if( res.command_id != BIND_TRANSMITTER_RESP ||
 			res.command_status != ESME_ROK ){
-		printf("Error in BIND(BIND_TRANSMITTER)[%d:%d]\n",
-				res.command_id, res.command_status);
 		return;
 	};
 
@@ -163,9 +168,7 @@ void msg_out_smpp_destroy() {
 		//--
 		if( res.command_id != UNBIND_RESP ||
 				res.command_status != ESME_ROK ){
-			printf("Error in send(UNBIND)[%d:%d]\n",
-					res.command_id, res.command_status);
-			return;
+				return;
 		};
 
 		g_state = 1;
@@ -198,7 +201,7 @@ void msg_out_smpp_terminate_blocking(thread_type thread) {
  * message data can't be changed
  */
 gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
-	g_print("received out [%p]\n", data);
+	core_log("msg", LOG_INFO, 1111, "message to send");
 
 	gint32 msg_pk;
 	gchar* txt_sender = NULL;
@@ -288,7 +291,6 @@ gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 	gboolean send_success = TRUE;
 	if (res.command_id != SUBMIT_SM_RESP || res.command_status != ESME_ROK ) {
 		send_success = FALSE;
-		printf("Error in send(SUBMIT_SM)[%d:%d]\n", res.command_id, res.command_status);
 	};
 
 	camqp_element_free((camqp_element*) el_req3);
@@ -315,7 +317,7 @@ gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 	camqp_element_free((camqp_element*) x_msg);
 
 	message* msg = message_new();
-	g_print("generating reply msg [%p]\n", msg);
+	core_log("msg", LOG_INFO, 1111, "generating reply");
 
 	g_byte_array_append(msg, (guint8*) e_msg->bytes, e_msg->size);
 	camqp_data_free(e_msg);
@@ -347,8 +349,7 @@ void msg_out_smpp_invoker_push_feedback() {
 
 	// send batch of replies
 	if (acks != NULL) {
-		g_print("sending replies\n");
-
+		core_log("msg", LOG_INFO, 1111, "sending replies");
 		core_handler_push_feedback(acks);
 
 		// setup them to sent

@@ -3,6 +3,7 @@
 #include <api_core_config.h>
 #include <api_core_options.h>
 #include <api_core.h>
+#include <api_core_log.h>
 
 #include <unistd.h>
 #include <sys/socket.h>
@@ -31,7 +32,7 @@ static int						g_state;
 static camqp_context*			g_context_msg;
 static camqp_context*			g_context_sms;
 
-#define RETRY_TIMEOUT			25000
+#define RETRY_TIMEOUT			500000 // usec
 
 /// init & destroy
 void msg_in_smpp_init() {
@@ -47,6 +48,12 @@ void msg_in_smpp_init() {
 	address.sin_family =			PF_INET;
 	address.sin_port =				htons(listen_port);
 	address.sin_addr.s_addr =		inet_addr(listen_ip);//htonl(INADDR_ANY);
+
+	{
+		gchar* wk = g_strdup_printf("listening: %s:%d", listen_ip, listen_port);
+		core_log("net", LOG_NOTICE, 1111, wk);
+		g_free(wk);
+	}
 
 	g_free(listen_ip);
 
@@ -130,7 +137,7 @@ void msg_in_smpp_invoker_push_forward() {
 		socklen_t		addr_len = sizeof(address);
 
 		g_socket_client = accept(g_socket_server, &address, &addr_len);
-		g_print("new connection\n");
+		core_log("net", LOG_NOTICE, 1111, "SMPP client connected");
 
 		// connected
 		g_state = 1;
@@ -195,6 +202,8 @@ void msg_in_smpp_invoker_push_forward() {
 		// bond
 		g_state  = 2;
 
+		core_log("net", LOG_NOTICE, 1111, "SMPP client bond");
+
 		return;
 	}
 
@@ -252,7 +261,9 @@ void msg_in_smpp_invoker_push_forward() {
 			// create message
 			message* msg = message_new();
 
-			g_print("generating msg [%p]\n", msg);
+//			g_print("generating msg [%p]\n", msg);
+
+			core_log("msg", LOG_INFO, 1111, "new message");
 
 			// encode sms
 			camqp_data* encoded_sms;
@@ -333,18 +344,20 @@ void msg_in_smpp_invoker_push_forward() {
 		//--
 
 		close(g_socket_client);
+
+		core_log("net", LOG_NOTICE, 1111, "SMPP client disconnected");
 	} else {
 		// close connection to client
 		close(g_socket_client);
+		core_log("net", LOG_NOTICE, 1111, "SMPP client disconnected");
 	}
 }
 // ---
 
 /// receive_feedback
 gboolean msg_in_smpp_handler_receive_feedback(const message* const data) {
-	g_print("received feedback [%p]\n", data);
-
 	// doing nothing with feedback messages
+	core_log("msg", LOG_INFO, 1111, "ignoring feedback");
 
 	return TRUE;
 }

@@ -1,6 +1,7 @@
 #include <api_module_msg_input.h>
 #include <api_core_messaging.h>
 #include <api_core_options.h>
+#include <api_core_log.h>
 
 #include <string.h>
 #include <sqlite3.h>
@@ -16,37 +17,6 @@ static sqlite3*						g_db_i;
 
 static camqp_context*				g_context_msg;
 static camqp_context*				g_context_sms;
-
-char* dump_data(unsigned char* pointer, unsigned int length)
-{
-	if (pointer == NULL || length == 0)
-		return NULL;
-
-	char* ret = malloc(length*5+1);
-	if (!ret)
-		return NULL;
-
-	memset(ret, '_', length*5);
-
-	unsigned int i;
-	for (i = 0; i < length; i++) {
-		memcpy(ret+(5*i), "0x", 2);
-		ret[5*i + 2] = "0123456789ABCDEF"[pointer[i] >> 4];
-		ret[5*i + 3] = "0123456789ABCDEF"[pointer[i] & 0x0F];
-		ret[5*i + 4] = ' ';
-	}
-	ret[length*5] = 0x00;
-
-	return ret;
-}
-
-camqp_char* camqp_data_dump(camqp_data* data) {
-	if (data == NULL)
-		return NULL;
-
-	return (camqp_char*) dump_data(data->bytes, data->size);
-}
-
 
 // exported functions
 module_producer_type msg_in_sqlite_producer_type() { return MODULE_PRODUCER_TYPE_PULL; }
@@ -67,7 +37,10 @@ gboolean db_query_empty(gchar* query) {
 	sqlite3_finalize(stmt);
 
 	if (ret != SQLITE_DONE) {
-		g_warning("Unexpected result '%d' from DB insert: %s!", ret, sqlite3_errmsg(g_db_i));
+		gchar* wk = g_strdup_printf("Unexpected result '%d' from DB insert: %s!", ret, sqlite3_errmsg(g_db_i));
+		core_log("db", LOG_CRIT, 1111, wk);
+		g_free(wk);
+
 		return FALSE;
 	}
 
@@ -87,7 +60,10 @@ sqlite3_stmt* db_query_init(gchar* query) {
 	);
 
 	if (ret != SQLITE_OK) {
-		g_warning("Error '%d' during statement preparation: %s!", ret, sqlite3_errmsg(g_db_i));
+		gchar* wk = g_strdup_printf("Error '%d' during statement preparation: %s!", ret, sqlite3_errmsg(g_db_i));
+		core_log("db", LOG_CRIT, 1111, wk);
+		g_free(wk);
+
 		return NULL;
 	}
 
@@ -104,13 +80,17 @@ void msg_in_sqlite_init() {
 	// create config DB file name
 	gchar* db_file_name = g_build_filename(
 			(gchar*) g_hash_table_lookup(opts, "program"),
+			"dbs",
 			"sms.db",
 			NULL
 	);
 
 	// check if exists
-	if (!g_file_test(db_file_name, G_FILE_TEST_IS_REGULAR))
-		g_error("Trash file '%s' doesn't exist!", db_file_name);
+	if (!g_file_test(db_file_name, G_FILE_TEST_IS_REGULAR)) {
+		gchar* wk = g_strdup_printf("SMS database file '%s' doesn't exist!", db_file_name);
+		core_log("db", LOG_CRIT, 1111, wk);
+		g_free(wk);
+	}
 
 	//
 	gint ret = 0;
@@ -118,7 +98,7 @@ void msg_in_sqlite_init() {
 
 	ret = sqlite3_open(db_file_name, &g_db_i);
 	if (ret != SQLITE_OK)
-		g_error("Cannot open sqlite db!\n");
+		core_log("db", LOG_CRIT, 1111, "Cannot open sqlite db!");
 
 	// free file name
 	g_free(db_file_name);
@@ -188,10 +168,10 @@ message_batch* msg_in_sqlite_handler_pull_forward() {
 		db_query_empty("ROLLBACK");
 		if (ret == SQLITE_DONE) {
 			// no result returned
-			g_print("nothing to send\n");
+			core_log("msg", LOG_INFO, 1111, "nothing to send in SMS db");
 			return NULL;
 		} else {
-			g_warning("Unexpected result '%d' from DB fetch!", ret);
+			core_log("db", LOG_CRIT, 1111, "Unexpected result from DB fetch!");
 			return NULL;
 		}
 	} else {
@@ -220,7 +200,11 @@ message_batch* msg_in_sqlite_handler_pull_forward() {
 			gchar* msg_recipient = (gchar*) sqlite3_column_text(st1, 2);
 			gchar* msg_text = (gchar*) sqlite3_column_text(st1, 3);
 
-			g_print("new sms to send %d:%s:%s:%s\n", msg_pk, msg_sender, msg_recipient, msg_text);
+			{
+				gchar* wk = g_strdup_printf("new SMS to send: %s:%s:%s", msg_sender, msg_recipient, msg_text);
+				core_log("msg", LOG_INFO, 1111, wk);
+				g_free(wk);
+			}
 
 			// encode sms
 			camqp_data* encoded_sms;
@@ -271,8 +255,6 @@ message_batch* msg_in_sqlite_handler_pull_forward() {
 }
 
 gboolean msg_in_sqlite_handler_receive_feedback(const message* const data) {
-	g_print("received feedback [%p]\n", data);
-
 	guint32 msg_pk;
 	gboolean msg_result;
 
@@ -320,7 +302,7 @@ gboolean msg_in_sqlite_handler_receive_feedback(const message* const data) {
 	field = camqp_composite_field_get(el_req4, (camqp_char*) "result");
 	msg_result = (gboolean) camqp_value_bool(field);
 
-//	g_print("reply pk = %d: %d\n", msg_pk, msg_result);
+	core_log("msg", LOG_INFO, 1111, "received feedback");
 
 	// --- treating
 

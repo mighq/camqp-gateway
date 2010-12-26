@@ -11,7 +11,7 @@ gboolean core_log_provider_init() {
 	gchar* module_name = core_config_get_text("core", "log_module");
 	if (!module_name || g_strcmp0("", module_name) == 0) {
 		g_free(module_name);
-		g_warning("Setting for 'core.log_module' is missing!");
+		core_log("core", LOG_WARNING, 1111, "Setting for 'core.log_module' is missing!");
 		return FALSE;
 	}
 
@@ -20,22 +20,19 @@ gboolean core_log_provider_init() {
 	g_free(module_name);
 
 	if (module == NULL) {
-		g_warning("%s", g_module_error());
+		core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 		return FALSE;
 	}
 
 	// find LogModule
 	g_module_symbol(module->module, "LogModule", (gpointer*) &entry);
 	if (entry == NULL) {
-		g_warning("%s", g_module_error());
+		core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 		return FALSE;
 	}
 
 	// get vtable from module
 	module->vtable = (module_vtable*) entry();
-
-	// setup module as log provider
-	g_provider_log = module;
 
 	// do specific things for logging
 	module_vtable_log* vtl = (module_vtable_log*) module->vtable;
@@ -44,10 +41,13 @@ gboolean core_log_provider_init() {
 	gboolean init_ret = vtl->init(&err);
 	if (!init_ret) {
 		if (err)
-			g_warning("%s", err->message);
+			core_log("core", LOG_WARNING, 1111, err->message);
 
 		return FALSE;
 	}
+
+	// setup module as log provider
+	g_provider_log = module;
 
 	return TRUE;
 }
@@ -56,10 +56,12 @@ gboolean core_log_provider_destroy() {
 	// do specific things for logging
 	module_vtable_log* vtl = (module_vtable_log*) g_provider_log->vtable;
 
-	// init logging
+	// destroy logging
 	vtl->destroy();
 
 	core_module_unload(g_provider_log->info->type, g_provider_log->info->name);
+
+	g_provider_log = NULL;
 
 	return TRUE;
 }
@@ -69,5 +71,17 @@ module_vtable_log* core_log_provider() {
 }
 
 gboolean core_log(gchar* domain, guchar level, guint code, gchar* message) {
-	return ((module_vtable_log*) g_provider_log->vtable)->log(domain, level, code, message);
+	if (g_provider_log != NULL) {
+		// log using provider
+		return ((module_vtable_log*) g_provider_log->vtable)->log(domain, level, code, message);
+	} else {
+		// if not provider set yet, use GLib logging
+		GTimeVal now;
+		g_get_current_time(&now);
+		gchar* formatted = g_time_val_to_iso8601(&now);
+
+		g_print("%s: %s\n", formatted, message);
+
+		return TRUE;
+	}
 }

@@ -2,6 +2,7 @@
 
 #include "global.h"
 #include "module.h"
+#include "log.h"
 
 #include <api_core.h>
 #include <api_core_options.h>
@@ -31,7 +32,7 @@ gboolean core_queue_provider_init(GError** error) {
 	// find ConfigModule
 	g_module_symbol(module->module, "QueueModule", (gpointer*) &entry);
 	if (entry == NULL) {
-		g_warning("%s", g_module_error());
+		core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 		return FALSE;
 	}
 
@@ -59,40 +60,50 @@ queue* core_queue_new() {
 	module_vtable_queue* tbl = core_queue_provider();
 	if (tbl->new != NULL)
 		return tbl->new();
-	else
-		g_error("Function 'new' not defined in queue module!");
+	else {
+		core_log("core", LOG_CRIT, 1111, "Function 'new' not defined in queue module!");
+		return NULL;
+	}
 }
 
 void core_queue_push(queue* object, message* data) {
 	module_vtable_queue* tbl = core_queue_provider();
 	if (tbl->push != NULL)
 		return tbl->push(object, data);
-	else
-		g_error("Function 'push' not defined in queue module!");
+	else {
+		core_log("core", LOG_CRIT, 1111, "Function 'push' not defined in queue module!");
+		return;
+	}
 }
 
 message* core_queue_pop(queue* object) {
 	module_vtable_queue* tbl = core_queue_provider();
 	if (tbl->pop != NULL)
 		return tbl->pop(object);
-	else
-		g_error("Function 'pop' not defined in queue module!");
+	else {
+		core_log("core", LOG_CRIT, 1111, "Function 'pop' not defined in queue module!");
+		return NULL;
+	}
 }
 
 gint core_queue_length(queue* object) {
 	module_vtable_queue* tbl = core_queue_provider();
 	if (tbl->length != NULL)
 		return tbl->length(object);
-	else
-		g_error("Function 'length' not defined in queue module!");
+	else {
+		core_log("core", LOG_CRIT, 1111, "Function 'length' not defined in queue module!");
+		return 0;
+	}
 }
 
 void core_queue_destroy(queue* object) {
 	module_vtable_queue* tbl = core_queue_provider();
 	if (tbl->destroy != NULL)
 		return tbl->destroy(object);
-	else
-		g_error("Function 'destroy' not defined in queue module!");
+	else {
+		core_log("core", LOG_CRIT, 1111, "Function 'destroy' not defined in queue module!");
+		return;
+	}
 }
 
 //

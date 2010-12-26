@@ -1,5 +1,7 @@
 #include <api_module_log.h>
 #include <api_core_config.h>
+#include <api_core_options.h>
+#include <api_core_log.h>
 
 #include <stdio.h>
 #include <glib.h>
@@ -9,6 +11,7 @@ static module_vtable_log*	g_vtable;
 static FILE*				g_log_fp;
 
 gboolean file_log(gchar* domain, guchar level, guint code, gchar* message);
+gchar* current_time_string();
 
 gboolean file_init(GError** error) {
 	*error = NULL;
@@ -21,13 +24,25 @@ gboolean file_init(GError** error) {
 		return FALSE;
 	}
 
-	g_print("Using log file: %s\n", fn);
-
 	g_log_fp = NULL;
+
+	gchar* now = g_strdup_printf("using log filename: %s", fn);
+	core_log("core", LOG_INFO, 1111, now);
+	g_free(now);
 
 	// TODO: determine if relative path, for relatives use log dir of application
 
-	FILE* fp = fopen(fn, "a");
+	// build filename of log file (in logs directory)
+	GHashTable* opts = core_options_get();
+	gchar* lf = g_build_filename(
+			(gchar*) g_hash_table_lookup(opts, "program"),
+			"logs",
+			fn,
+			NULL
+	);
+
+	FILE* fp = fopen(lf, "a");
+	g_free(lf);
 	if (!fp) {
 		g_set_error(error, 0, 0, "Cannot open file for logging '%s'!", fn);
 		g_free(fn);
@@ -43,7 +58,7 @@ gboolean file_init(GError** error) {
 
 gboolean file_destroy() {
 	if (g_log_fp) {
-		file_log("core", 0, 0, "closing log file");
+		core_log("core", LOG_INFO, 1111, "closing log file");
 		fclose(g_log_fp);
 	}
 

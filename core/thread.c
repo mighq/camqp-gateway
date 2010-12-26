@@ -2,6 +2,7 @@
 #include "global.h"
 #include "queue.h"
 #include "messaging.h"
+#include "log.h"
 
 #include <api_core.h>
 #include <api_core_config.h>
@@ -10,14 +11,14 @@
 #include <api_module_msg_output.h>
 
 gpointer thread_forward_pull(gpointer data) {
-	g_print("=frwd_pull\n");
+	core_log("msg", LOG_INFO, 1111, "starting thread: FORWARD PULL");
 
 	GTimeVal wakeup;
 	gfloat timeout;
 
 	// get retry timeout from config (miliseconds)
 	if (!core_config_isset("core", "forward_pull_timeout")) {
-		g_print("Timeout for forward pull not specified in configuration! Using default 30s.\n");
+		core_log("msg", LOG_WARNING, 1111, "Timeout for forward pull not specified in configuration! Using default 30s.");
 		timeout = 30000;
 	} else {
 		timeout = core_config_get_real("core", "forward_pull_timeout");
@@ -30,6 +31,7 @@ gpointer thread_forward_pull(gpointer data) {
 	gboolean term = core_terminated();
 	while (term == FALSE) {
 		// get batch from input module
+		core_log("msg", LOG_INFO, 1111, "calling FORWARD PULL handler");
 		message_batch* todo = tbl->handler_pull_forward();
 
 		// push batch to queue
@@ -48,7 +50,7 @@ gpointer thread_forward_pull(gpointer data) {
 		term = core_terminated();
 	}
 
-	g_print("#frwd_pull\n");
+	core_log("msg", LOG_INFO, 1111, "ending thread: FORWARD PULL");
 
 	return NULL;
 }
@@ -57,7 +59,7 @@ gpointer thread_forward_pull(gpointer data) {
  * calling invoker in loop, until termination occurs
  */
 gpointer thread_forward_push(gpointer data) {
-	g_print("=frwd_push\n");
+	core_log("msg", LOG_INFO, 1111, "starting thread: FORWARD PUSH");
 
 	// get input module invoker
 	module_vtable_msg_input* tbl = core_messaging_handlers_input();
@@ -66,13 +68,14 @@ gpointer thread_forward_push(gpointer data) {
 	gboolean term = core_terminated();
 	while (term == FALSE) {
 		// delegate logic to input module
+		core_log("msg", LOG_INFO, 1111, "calling FORWARD PUSH invoker");
 		tbl->invoker_push_forward();
 
 		// check if we have to stop
 		term = core_terminated();
 	}
 
-	g_print("#frwd_push\n");
+	core_log("msg", LOG_INFO, 1111, "ending thread: FORWARD PUSH");
 
 	return NULL;
 }
@@ -82,7 +85,7 @@ gpointer thread_forward_push(gpointer data) {
  *
  */
 gpointer thread_forward_receive(gpointer data) {
-	g_print("=frwd_recv\n");
+	core_log("msg", LOG_INFO, 1111, "starting thread: FORWARD RECV");
 
 	// get output module handler
 	module_vtable_msg_output* tbl = core_messaging_handlers_output();
@@ -96,6 +99,7 @@ gpointer thread_forward_receive(gpointer data) {
 		// while there's something to do
 		while (msg != NULL) {
 			// send message to output plugin
+			core_log("msg", LOG_INFO, 1111, "calling FORWARD RECV handler");
 			gboolean delivered = tbl->handler_receive_forward(msg);
 
 			if (delivered) {
@@ -123,14 +127,14 @@ gpointer thread_forward_receive(gpointer data) {
 		term = core_terminated();
 	}
 
-	g_print("#frwd_recv\n");
+	core_log("msg", LOG_INFO, 1111, "ending thread: FORWARD RECV");
 
 	return NULL;
 }
 
 
 gpointer thread_feedback_push(gpointer data) {
-	g_print("=fbck_push\n");
+	core_log("msg", LOG_INFO, 1111, "starting thread: FEEDBACK PUSH");
 
 	// get input module invoker
 	module_vtable_msg_output* tbl = core_messaging_handlers_output();
@@ -139,26 +143,27 @@ gpointer thread_feedback_push(gpointer data) {
 	gboolean term = core_terminated();
 	while (term == FALSE) {
 		// delegate logic to input module
+		core_log("msg", LOG_INFO, 1111, "calling FEEDBACK PUSH invoker");
 		tbl->invoker_push_feedback();
 
 		// check if we have to stop
 		term = core_terminated();
 	}
 
-	g_print("#fbck_push\n");
+	core_log("messaging", LOG_INFO, 1111, "ending thread: FEEDBACK PUSH");
 
 	return NULL;
 }
 
 gpointer thread_feedback_pull(gpointer data) {
-	g_print("=fbck_pull\n");
+	core_log("msg", LOG_INFO, 1111, "starting thread: FEEDBACK PULL");
 
 	GTimeVal wakeup;
 	gfloat timeout;
 
 	// get retry timeout from config (miliseconds)
 	if (!core_config_isset("core", "feedback_pull_timeout")) {
-		g_print("Timeout for feedback pull not specified in configuration! Using default 30s.\n");
+		core_log("msg", LOG_WARNING, 1111, "Timeout for feedback pull not specified in configuration! Using default 30s.");
 		timeout = 30000;
 	} else {
 		timeout = core_config_get_real("core", "feedback_pull_timeout");
@@ -171,6 +176,7 @@ gpointer thread_feedback_pull(gpointer data) {
 	gboolean term = core_terminated();
 	while (term == FALSE) {
 		// get batch from input module
+		core_log("msg", LOG_INFO, 1111, "calling FEEDBACK PULL handler");
 		message_batch* todo = tbl->handler_pull_feedback();
 
 		// push batch to queue
@@ -189,13 +195,13 @@ gpointer thread_feedback_pull(gpointer data) {
 		term = core_terminated();
 	}
 
-	g_print("#fbck_pull\n");
+	core_log("msg", LOG_INFO, 1111, "ending thread: FEEDBACK PULL");
 
 	return NULL;
 }
 
 gpointer thread_feedback_receive(gpointer data) {
-	g_print("=fbck_recv\n");
+	core_log("msg", LOG_INFO, 1111, "starting thread: FEEDBACK RECV");
 
 	// get output module handler
 	module_vtable_msg_input* tbl = core_messaging_handlers_input();
@@ -209,6 +215,7 @@ gpointer thread_feedback_receive(gpointer data) {
 		// while there's something to do
 		while (msg != NULL) {
 			// send message to output plugin
+			core_log("msg", LOG_INFO, 1111, "calling FEEDBACK RECV handler");
 			gboolean delivered = tbl->handler_receive_feedback(msg);
 
 			if (delivered) {
@@ -236,13 +243,13 @@ gpointer thread_feedback_receive(gpointer data) {
 		term = core_terminated();
 	}
 
-	g_print("#fbck_recv\n");
+	core_log("msg", LOG_INFO, 1111, "ending thread: FEEDBACK RECV");
 
 	return NULL;
 }
 
 gpointer thread_trash_receive(gpointer data) {
-	g_print("=trsh_recv\n");
+	core_log("msg", LOG_INFO, 1111, "starting thread: TRASH RECV");
 
 	// get output module handler
 	module_vtable_msg_trash* tbl = core_messaging_handlers_trash();
@@ -256,6 +263,7 @@ gpointer thread_trash_receive(gpointer data) {
 		// while there's something to do
 		while (msg != NULL) {
 			// send message to output plugin
+			core_log("msg", LOG_INFO, 1111, "calling TRASH RECV handler");
 			tbl->handler_receive_trash(msg);
 
 			// free message data
@@ -274,7 +282,7 @@ gpointer thread_trash_receive(gpointer data) {
 		term = core_terminated();
 	}
 
-	g_print("#trsh_recv\n");
+	core_log("msg", LOG_INFO, 1111, "ending thread: TRASH RECV");
 
 	return NULL;
 }

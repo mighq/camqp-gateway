@@ -1,4 +1,5 @@
 #include "module.h"
+#include "log.h"
 
 #include "global.h"
 
@@ -57,7 +58,7 @@ module_loaded* core_module_load(module_type type, const gchar* name, GError** er
 		g_set_error(error, 0, 0, "%s", g_module_error());
 
 		if (!g_module_close(plugin))
-			g_warning("%s", g_module_error());
+			core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 
 		return NULL;
 	} else {
@@ -65,7 +66,7 @@ module_loaded* core_module_load(module_type type, const gchar* name, GError** er
 			g_set_error(error, 0, 0, "Plugin 'LoadModule' symbol is not present!");
 
 			if (!g_module_close(plugin))
-				g_warning("%s", g_module_error());
+				core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 
 			return NULL;
 		}
@@ -76,7 +77,7 @@ module_loaded* core_module_load(module_type type, const gchar* name, GError** er
 		g_set_error(error, 0, 0, "%s", g_module_error());
 
 		if (!g_module_close(plugin))
-			g_warning("%s", g_module_error());
+			core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 
 		return NULL;
 	} else {
@@ -84,7 +85,7 @@ module_loaded* core_module_load(module_type type, const gchar* name, GError** er
 			g_set_error(error, 0, 0, "Plugin 'UnloadModule' symbol is not present!");
 
 			if (!g_module_close(plugin))
-				g_warning("%s", g_module_error());
+				core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 
 			return NULL;
 		}
@@ -96,17 +97,23 @@ module_loaded* core_module_load(module_type type, const gchar* name, GError** er
 		g_set_error(error, 0, 0, "Error getting plugin info!");
 
 		if (!g_module_close(plugin))
-			g_warning("%s", g_module_error());
+			core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 
 		return NULL;
 	}
 
 	// check module
-	if (plugin_info->type != type)
-		g_warning("Module has different type (%d) than requested (%d)!", plugin_info->type, type);
+	if (plugin_info->type != type) {
+		gchar* wk = g_strdup_printf("Module has different type (%d) than requested (%d)!", plugin_info->type, type);
+		core_log("core", LOG_WARNING, 1111, wk);
+		g_free(wk);
+	}
 
-	if (strcmp(plugin_info->name, name) != 0)
-		g_warning("Module '%s' has different name than requested ('%s')!", plugin_info->name, name);
+	if (strcmp(plugin_info->name, name) != 0) {
+		gchar* wk = g_strdup_printf("Module '%s' has different name than requested ('%s')!", plugin_info->name, name);
+		core_log("core", LOG_WARNING, 1111, wk);
+		g_free(wk);
+	}
 
 	// save to loaded modules
 	module = g_new0(module_loaded, 1);
@@ -139,18 +146,18 @@ void core_module_unload_ptr(module_loaded* data) {
 
 	// find unload
 	if (!g_module_symbol(data->module, "UnloadModule", (gpointer*) &plugin_unload)) {
-		g_warning("%s", g_module_error());
+		core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 
 		if (!g_module_close(data->module))
-			g_warning("%s", g_module_error());
+			core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 
 		return;
 	} else {
 		if (plugin_unload == NULL) {
-			g_warning("Plugin 'UnloadModule' symbol is not present!");
+			core_log("core", LOG_WARNING, 1111, "Plugin 'UnloadModule' symbol is not present!");
 
 			if (!g_module_close(data->module))
-				g_warning("%s", g_module_error());
+				core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 
 			return;
 		}
@@ -161,7 +168,7 @@ void core_module_unload_ptr(module_loaded* data) {
 
 	// cleanup plugin reference
 	if (!g_module_close(data->module))
-		g_warning("%s", g_module_error());
+		core_log("core", LOG_WARNING, 1111, (gchar*) g_module_error());
 
 	// data->info will be freed in module unload
 

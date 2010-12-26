@@ -1,6 +1,7 @@
 #include <api_module_config.h>
 #include <api_core_options.h>
 #include <api_core.h>
+#include <api_core_log.h>
 
 #include <string.h>
 #include <sqlite3.h>
@@ -20,21 +21,26 @@ void config_sqlite_module_init() {
 	// create config DB file name
 	gchar* db_file_name = g_build_filename(
 			(gchar*) g_hash_table_lookup(opts, "program"),
+			"dbs",
 			"config.db",
 			NULL
 	);
 
 	// check if exists
-	if (!g_file_test(db_file_name, G_FILE_TEST_IS_REGULAR))
-		g_error("Config file '%s' doesn't exist!", db_file_name);
+	if (!g_file_test(db_file_name, G_FILE_TEST_IS_REGULAR)) {
+		gchar* wk = g_strdup_printf("Config file '%s' doesn't exist!", db_file_name);
+		core_log("core", LOG_WARNING, 1111, wk);
+		g_free(wk);
+	}
 
 	// 
 	gint ret = 0;
 	g_db = NULL;
 
 	ret = sqlite3_open(db_file_name, &g_db);
-	if (ret != SQLITE_OK)
-		g_error("Cannot open sqlite db!\n");
+	if (ret != SQLITE_OK) {
+		core_log("db", LOG_ERR, 1111, "Cannot open sqlite db");
+	}
 
 	// free file name
 	g_free(db_file_name);
@@ -91,7 +97,7 @@ sqlite3_stmt* config_sqlite_prepare_config_query(gchar* column, gchar* group, gc
 	g_free(query);
 
 	if (ret != SQLITE_OK) {
-		g_warning("Error '%d' during statement preparation!", ret);
+		core_log("db", LOG_WARNING, 1111, "Error during statement preparation");
 		return 0;
 	}
 
@@ -101,7 +107,7 @@ sqlite3_stmt* config_sqlite_prepare_config_query(gchar* column, gchar* group, gc
 			// no result returned
 			return NULL;
 		} else {
-			g_warning("Unexpected result '%d' from DB fetch!", ret);
+			core_log("db", LOG_WARNING, 1111, "Unexpected result from DB fetch");
 			return NULL;
 		}
 	}
@@ -148,7 +154,7 @@ gboolean config_sqlite_isset(gchar* group, gchar* option) {
 	g_free(query);
 
 	if (ret != SQLITE_OK) {
-		g_warning("Error '%d' during statement preparation!", ret);
+		core_log("db", LOG_WARNING, 1111, "Error during statement preparation");
 		return FALSE;
 	}
 
@@ -158,7 +164,7 @@ gboolean config_sqlite_isset(gchar* group, gchar* option) {
 			// no result returned
 			return FALSE;
 		} else {
-			g_warning("Unexpected result '%d' from DB fetch!", ret);
+			core_log("db", LOG_WARNING, 1111, "Unexpected result from DB fetch");
 			return FALSE;
 		}
 	}

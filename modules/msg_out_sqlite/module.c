@@ -2,6 +2,7 @@
 #include <api_core.h>
 #include <api_core_messaging.h>
 #include <api_core_options.h>
+#include <api_core_log.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -21,38 +22,6 @@ static message_batch*				acks;
 
 static camqp_context*				g_context_msg;
 static camqp_context*				g_context_sms;
-
-
-char* dump_data(unsigned char* pointer, unsigned int length)
-{
-	if (pointer == NULL || length == 0)
-		return NULL;
-
-	char* ret = malloc(length*5+1);
-	if (!ret)
-		return NULL;
-
-	memset(ret, '_', length*5);
-
-	unsigned int i;
-	for (i = 0; i < length; i++) {
-		memcpy(ret+(5*i), "0x", 2);
-		ret[5*i + 2] = "0123456789ABCDEF"[pointer[i] >> 4];
-		ret[5*i + 3] = "0123456789ABCDEF"[pointer[i] & 0x0F];
-		ret[5*i + 4] = ' ';
-	}
-	ret[length*5] = 0x00;
-
-	return ret;
-}
-
-camqp_char* camqp_data_dump(camqp_data* data) {
-	if (data == NULL)
-		return NULL;
-
-	return (camqp_char*) dump_data(data->bytes, data->size);
-}
-
 
 // exported functions
 module_producer_type msg_out_sqlite_producer_type() { return MODULE_PRODUCER_TYPE_PUSH; }
@@ -86,7 +55,10 @@ gboolean db_query_empty(gchar* query) {
 	sqlite3_finalize(stmt);
 
 	if (ret != SQLITE_DONE) {
-		g_warning("Unexpected result '%d' from DB insert: %s!", ret, sqlite3_errmsg(g_db_o));
+		gchar* wk = g_strdup_printf("Unexpected result '%d' from DB insert: %s!", ret, sqlite3_errmsg(g_db_o));
+		core_log("db", LOG_CRIT, 1111, wk);
+		g_free(wk);
+
 		return FALSE;
 	}
 
@@ -108,7 +80,10 @@ gint db_query_int(gchar* query) {
 	);
 
 	if (ret != SQLITE_OK) {
-		g_warning("Error '%d' during statement preparation!", ret);
+		gchar* wk = g_strdup_printf("Error '%d' during statement preparation!", ret);
+		core_log("db", LOG_WARNING, 1111, wk);
+		g_free(wk);
+
 		return default_value;
 	}
 
@@ -118,7 +93,7 @@ gint db_query_int(gchar* query) {
 			// no result returned
 			return default_value;
 		} else {
-			g_warning("Unexpected result '%d' from DB fetch!", ret);
+			core_log("db", LOG_WARNING, 1111, "Unexpected result from DB fetch");
 			return default_value;
 		}
 	}
@@ -133,7 +108,7 @@ gint db_query_int(gchar* query) {
  * message data can't be changed
  */
 gboolean msg_out_sqlite_handler_receive_forward(const message* const data) {
-	g_print("received out [%p]\n", data);
+	core_log("msg", LOG_INFO, 1111, "message received");
 
 	gchar* txt_sender = NULL;
 	gchar* txt_recipient = NULL;
@@ -191,6 +166,12 @@ gboolean msg_out_sqlite_handler_receive_forward(const message* const data) {
 	txt_text = (gchar*) camqp_value_string(field);
 	field = camqp_composite_field_get(el_req4, (camqp_char*) "id");
 	msg_pk = (gint32) camqp_value_uint(field);
+
+			{
+				gchar* wk = g_strdup_printf("new SMS to delivered: %s:%s:%s", txt_sender, txt_recipient, txt_text);
+				core_log("msg", LOG_INFO, 1111, wk);
+				g_free(wk);
+			}
 
 	// current timestamp
 	GTimeVal now_t;
@@ -265,8 +246,8 @@ gboolean msg_out_sqlite_handler_receive_forward(const message* const data) {
 	camqp_data* e_msg = camqp_element_encode((camqp_element*) x_msg);
 	camqp_element_free((camqp_element*) x_msg);
 
+	core_log("msg", LOG_INFO, 1111, "generating reply");
 	message* msg = message_new();
-	g_print("generating reply msg [%p]\n", msg);
 
 	g_byte_array_append(msg, (guint8*) e_msg->bytes, e_msg->size);
 	camqp_data_free(e_msg);
@@ -298,8 +279,7 @@ void msg_out_sqlite_invoker_push_feedback() {
 
 	// send batch of replies
 	if (acks != NULL) {
-		g_print("sending replies\n");
-
+		core_log("msg", LOG_INFO, 1111, "sending replies");
 		core_handler_push_feedback(acks);
 
 		// setup them to sent
@@ -319,13 +299,17 @@ void msg_out_sqlite_init() {
 	// create config DB file name
 	gchar* db_file_name = g_build_filename(
 			(gchar*) g_hash_table_lookup(opts, "program"),
+			"dbs",
 			"sms.db",
 			NULL
 	);
 
 	// check if exists
-	if (!g_file_test(db_file_name, G_FILE_TEST_IS_REGULAR))
-		g_error("Trash file '%s' doesn't exist!", db_file_name);
+	if (!g_file_test(db_file_name, G_FILE_TEST_IS_REGULAR)) {
+		gchar* wk = g_strdup_printf("SMS database file '%s' doesn't exist!", db_file_name);
+		core_log("db", LOG_CRIT, 1111, wk);
+		g_free(wk);
+	}
 
 	//
 	gint ret = 0;
@@ -333,7 +317,7 @@ void msg_out_sqlite_init() {
 
 	ret = sqlite3_open(db_file_name, &g_db_o);
 	if (ret != SQLITE_OK)
-		g_error("Cannot open sqlite db!\n");
+		core_log("db", LOG_CRIT, 1111, "cannot open sqlite db");
 
 	// free file name
 	g_free(db_file_name);
