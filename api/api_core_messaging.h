@@ -11,6 +11,4 @@ DLLIMPORT gboolean	core_handler_push_forward(message_batch* data);
 DLLIMPORT gboolean	core_handler_push_feedback(message_batch* data);
 DLLIMPORT gboolean	core_handler_push_trash(const message* const data);
 
-DLLIMPORT guint32	core_sequence_next();
-
 #endif

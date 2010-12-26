@@ -78,7 +78,6 @@ void core_init() {
 
 	// do not terminate yet
 	g_termination = FALSE;
-	g_sequence_started = FALSE;
 
 	// setup signal handling
 	struct sigaction signal;

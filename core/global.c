@@ -1,6 +1,7 @@
 #define GLOBALIMPORT
 #include "global.h"
 
+/*
 #include <stdlib.h>
 #include <string.h>
 
@@ -20,3 +21,4 @@ const char* serialize_payload(unsigned char* pointer, unsigned int length)
 
 	return ret;
 }
+*/

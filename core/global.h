@@ -18,9 +18,6 @@ GLOBALIMPORT GHashTable*	g_options;
 
 GLOBALIMPORT GHashTable*	g_modules;
 
-GLOBALIMPORT guint32		g_sequence;
-GLOBALIMPORT gboolean		g_sequence_started;
-
 /**
  * provider modules
  *
@@ -73,10 +70,5 @@ GLOBALIMPORT GMutex*		g_lck_feedback_receive;
 // used to indicate that new messages are on trash queue and trash receiver thread should be woken-up
 GLOBALIMPORT GCond*			g_cnd_trash_receive;
 GLOBALIMPORT GMutex*		g_lck_trash_receive;
-
-// used to block access to sequence numbes
-GLOBALIMPORT GMutex*		g_lck_sequence;
-
-const char* serialize_payload(unsigned char* pointer, unsigned int length);
 
 #endif
