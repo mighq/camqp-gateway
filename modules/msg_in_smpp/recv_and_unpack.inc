@@ -8,13 +8,13 @@
 	if( ret != local_buffer_len ){ 
 		printf("Error in recv(%d bytes)\n", local_buffer_len);return;};
 	/* Print Buffer *******************************************************/
-	memset(print_buffer, 0, sizeof(print_buffer));
+/*	memset(print_buffer, 0, sizeof(print_buffer));
 	ret = smpp34_dumpBuf(print_buffer, sizeof(print_buffer), 
 			local_buffer, local_buffer_len);
 	if( ret != 0 ){ printf("Error in smpp34_dumpBuf():%d:\n%s\n",
 			smpp34_errno, smpp34_strerror ); return; };
 	printf("-----------------------------------------------------------\n");
-	printf("RECEIVE BUFFER \n%s\n", print_buffer);
+	printf("RECEIVE BUFFER \n%s\n", print_buffer);*/
 	/* unpack PDU *********************************************************/
 	memcpy(&tempo, local_buffer+4, sizeof(uint32_t)); /* get command_id PDU */
 	cmd_id = ntohl( tempo );
@@ -22,9 +22,9 @@
 	if( ret != 0){ printf( "Error in smpp34_unpack():%d:%s\n",
 			smpp34_errno, smpp34_strerror); return; };
 	/* Print PDU **********************************************************/
-	memset(print_buffer, 0, sizeof(print_buffer));
+/*	memset(print_buffer, 0, sizeof(print_buffer));
 	ret = smpp34_dumpPdu( res.command_id, print_buffer, 
 			sizeof(print_buffer), (void*)&res);
 	if( ret != 0){ printf("Error in smpp34_dumpPdu():%d:\n%s\n",
 			smpp34_errno, smpp34_strerror); return; };
-	printf("RECEIVE PDU \n%s\n", print_buffer);
+	printf("RECEIVE PDU \n%s\n", print_buffer);*/

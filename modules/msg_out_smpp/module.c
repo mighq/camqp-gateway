@@ -1,6 +1,7 @@
 #include <api_module_msg_output.h>
 #include <api_core_messaging.h>
 #include <api_core_options.h>
+#include <api_core_config.h>
 #include <api_core.h>
 
 #include <stdlib.h>
@@ -104,15 +105,15 @@ void msg_out_smpp_init() {
 	req.command_id       = BIND_TRANSMITTER;
 	req.command_status   = ESME_ROK;
 	req.sequence_number  = 1; // TODO
-	strcpy(req.system_id, "pavel");
-	strcpy(req.password, "wpsd");
-	strcpy(req.system_type, "type01");
+	strcpy((char*) req.system_id,	"pavel");
+	strcpy((char*) req.password,	"wpsd");
+	strcpy((char*) req.system_type,	"type01");
 	req.interface_version = SMPP_VERSION;
 	//--
 	int ret = 0;
 	char local_buffer[1024];
 	int  local_buffer_len = 0;
-	char print_buffer[2048];
+//	char print_buffer[2048];
 	uint32_t tempo = 0;
 	uint32_t cmd_id = 0;
 	//--
@@ -152,7 +153,7 @@ void msg_out_smpp_destroy() {
 		int ret = 0;
 		char local_buffer[1024];
 		int  local_buffer_len = 0;
-		char print_buffer[2048];
+//		char print_buffer[2048];
 		uint32_t tempo = 0;
 		uint32_t cmd_id = 0;
 		//--
@@ -224,7 +225,7 @@ gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 	// save uuid
 	camqp_element* field;
 	field = camqp_composite_field_get(el_req2, (camqp_char*) "id");
-	camqp_uuid* id_obj = camqp_value_uuid(field);
+	const camqp_uuid* id_obj = camqp_value_uuid(field);
 	camqp_uuid request_id;
 	uuid_copy(request_id, *id_obj);
 
@@ -268,15 +269,15 @@ gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 	req.command_id       = SUBMIT_SM;
 	req.command_status   = ESME_ROK;
 	req.sequence_number  = msg_pk;
-	strcpy(req.source_addr, txt_sender);
-	strcpy(req.destination_addr, txt_recipient);
+	strcpy((char*) req.source_addr, txt_sender);
+	strcpy((char*) req.destination_addr, txt_recipient);
 	req.sm_length           = strlen(txt_text);
-	strcpy(req.short_message, txt_text);
+	strcpy((char*) req.short_message, txt_text);
 	//---
 	int ret = 0;
 	char local_buffer[1024];
 	int  local_buffer_len = 0;
-	char print_buffer[2048];
+//	char print_buffer[2048];
 	uint32_t tempo = 0;
 	uint32_t cmd_id = 0;
 	//
@@ -298,8 +299,8 @@ gboolean msg_out_smpp_handler_receive_forward(const message* const data) {
 	camqp_composite* x_res = camqp_composite_new(g_context_sms, (camqp_char*) "sms_response", 0);
 	camqp_composite_field_put(x_res, (camqp_char*) "id", (camqp_element*) camqp_scalar_uint(g_context_sms, CAMQP_TYPE_UINT, msg_pk));
 	camqp_composite_field_put(x_res, (camqp_char*) "result", (camqp_element*) camqp_scalar_bool(g_context_sms, send_success));
-	camqp_data* e_res = camqp_element_encode(x_res);
-	camqp_element_free(x_res);
+	camqp_data* e_res = camqp_element_encode((camqp_element*) x_res);
+	camqp_element_free((camqp_element*) x_res);
 
 	// encode message
 	camqp_composite* x_msg = camqp_composite_new(g_context_msg, (camqp_char*) "response", 0);

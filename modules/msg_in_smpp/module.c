@@ -1,6 +1,7 @@
 #include <api_module_msg_input.h>
 #include <api_core_messaging.h>
 #include <api_core_config.h>
+#include <api_core_options.h>
 #include <api_core.h>
 
 #include <unistd.h>
@@ -116,6 +117,10 @@ void msg_in_smpp_invoker_push_forward() {
 		// check for connection on socket
 		int ready = select(g_socket_server + 1, &waiting_sockets, NULL, NULL, &tv);
 
+		// check errors
+		if (ready == -1)
+			return;
+
 		// do nothing if no connection received (will be repeated)
 		if (!FD_ISSET(g_socket_server, &waiting_sockets))
 			return;
@@ -139,7 +144,7 @@ void msg_in_smpp_invoker_push_forward() {
 		int ret = 0;
 		char local_buffer[1024];
 		int  local_buffer_len = 0;
-		char print_buffer[2048];
+//		char print_buffer[2048];
 		uint32_t tempo = 0;
 		uint32_t cmd_id = 0;
 		//--
@@ -154,26 +159,26 @@ void msg_in_smpp_invoker_push_forward() {
 		if( ret != local_buffer_len ){
 			printf("Error in recv(%d bytes)\n", local_buffer_len);return;};
 		/* Print Buffer *******************************************************/
-		memset(print_buffer, 0, sizeof(print_buffer));
+/*		memset(print_buffer, 0, sizeof(print_buffer));
 		ret = smpp34_dumpBuf(print_buffer, sizeof(print_buffer),
 				local_buffer, local_buffer_len);
 		if( ret != 0 ){ printf("Error in smpp34_dumpBuf():%d:\n%s\n",
 				smpp34_errno, smpp34_strerror ); return; };
 		printf("--\n");
-		printf("RECEIVE BUFFER \n%s\n", print_buffer);
+		printf("RECEIVE BUFFER \n%s\n", print_buffer);*/
 		/* unpack PDU *********************************************************/
 		memcpy(&tempo, local_buffer+4, sizeof(uint32_t)); /* get command_id PDU */
 		cmd_id = ntohl( tempo );
-		ret = smpp34_unpack(cmd_id, (void*)&res, local_buffer, local_buffer_len);
+		ret = smpp34_unpack(cmd_id, (void*)&res, (uint8_t*) local_buffer, local_buffer_len);
 		if( ret != 0){ printf( "Error in smpp34_unpack():%d:%s\n",
 				smpp34_errno, smpp34_strerror); return; };
 		/* Print PDU **********************************************************/
-		memset(print_buffer, 0, sizeof(print_buffer));
+/*		memset(print_buffer, 0, sizeof(print_buffer));
 		ret = smpp34_dumpPdu( res.command_id, print_buffer,
 				sizeof(print_buffer), (void*)&res);
 		if( ret != 0){ printf("Error in smpp34_dumpPdu():%d:\n%s\n",
 				smpp34_errno, smpp34_strerror); return; };
-		printf("RECEIVE PDU \n%s\n", print_buffer);
+		printf("RECEIVE PDU \n%s\n", print_buffer);*/
 
 		//=== reply bind
 		bind_transmitter_resp_t req;
@@ -202,7 +207,7 @@ void msg_in_smpp_invoker_push_forward() {
 	int ret = 0;
 	char local_buffer[1024];
 	int  local_buffer_len = 0;
-	char print_buffer[2048];
+//	char print_buffer[2048];
 	uint32_t tempo = 0;
 	uint32_t cmd_id = 0;
 	//--
@@ -231,17 +236,16 @@ void msg_in_smpp_invoker_push_forward() {
 		submit_sm_t res;
 		memset(&res, 0, sizeof(submit_sm_t));
 
-		ret = smpp34_unpack(cmd_id, (void*)&res, local_buffer, local_buffer_len);
+		ret = smpp34_unpack(cmd_id, (void*)&res, (uint8_t*) local_buffer, local_buffer_len);
 		if( ret != 0){ printf( "Error in smpp34_unpack():%d:%s\n",
 				smpp34_errno, smpp34_strerror); return; };
 
-		memset(print_buffer, 0, sizeof(print_buffer));
+/*		memset(print_buffer, 0, sizeof(print_buffer));
 		ret = smpp34_dumpPdu( res.command_id, print_buffer,
 				sizeof(print_buffer), (void*)&res);
 		if( ret != 0){ printf("Error in smpp34_dumpPdu():%d:\n%s\n",
 				smpp34_errno, smpp34_strerror); return; };
-		printf("RECEIVE PDU \n%s\n", print_buffer);
-
+		printf("RECEIVE PDU \n%s\n", print_buffer);*/
 
 		// ===
 
@@ -302,17 +306,17 @@ void msg_in_smpp_invoker_push_forward() {
 		unbind_t res;
 		memset(&res, 0, sizeof(unbind_t));
 
-		ret = smpp34_unpack(cmd_id, (void*)&res, local_buffer, local_buffer_len);
+		ret = smpp34_unpack(cmd_id, (void*)&res, (uint8_t*) local_buffer, local_buffer_len);
 		if( ret != 0){ printf( "Error in smpp34_unpack():%d:%s\n",
 				smpp34_errno, smpp34_strerror); return; };
-
+/*
 		memset(print_buffer, 0, sizeof(print_buffer));
 		ret = smpp34_dumpPdu( res.command_id, print_buffer,
 				sizeof(print_buffer), (void*)&res);
 		if( ret != 0){ printf("Error in smpp34_dumpPdu():%d:\n%s\n",
 				smpp34_errno, smpp34_strerror); return; };
 		printf("RECEIVE PDU \n%s\n", print_buffer);
-
+*/
 		// unbind
 		g_state = 0;
 
