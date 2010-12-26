@@ -4,3 +4,5 @@
 	vypis co vlastne budes robi
 * nejak rozumnejsie spristupnit funkcie jadra, interface jadra, modul ho dostava ako parameter, alebo sa mu nastavuje pomocou metody este pred getmodule 
 * registrovanie blockerov v jadre???
+
+smpp => in => len v rezime transmitter sa da bindnut pomocou klienta
