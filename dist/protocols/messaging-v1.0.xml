@@ -28,5 +28,14 @@
 			<field name="protocol" type="string"/>
 			<field name="content" type="binary" mandatory="true"/>
 		</type>
+
+		<type name="batch-start" class="composite" source="list">
+			<descriptor code="0x00000003"/>
+		</type>
+
+		<type name="batch-end" class="composite" source="list">
+			<descriptor code="0x00000004"/>
+		</type>
+
 	</section>
 </amqp>
