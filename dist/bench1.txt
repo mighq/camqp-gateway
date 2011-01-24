@@ -1,0 +1,12 @@
+sqlite> select max(date_received)-min(date_received) from message join message_incoming using (message_pk);
+max(date_received)-min(date_received)
+5.39557600021362
+sqlite> select count(*) from message join message_incoming using (message_pk);
+count(*)
+1000
+sqlite> select (max(date_received)-min(date_received))/count(*) from message join message_incoming using (message_pk);
+(max(date_received)-min(date_received))/count(*)
+0.00539557600021362
+sqlite> select 1/((max(date_received)-min(date_received))/count(*)) from message join message_incoming using (message_pk);
+1/((max(date_received)-min(date_received))/count(*))
+185.337024251055

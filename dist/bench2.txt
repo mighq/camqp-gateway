@@ -1,0 +1,12 @@
+sqlite> select count(*) from message join message_outgoing using (message_pk);
+count(*)
+1000
+sqlite> select (max(date_sent)-min(date_sent)) from message join message_outgoing using (message_pk) where status = 2;
+(max(date_sent)-min(date_sent))
+8.94308185577393
+sqlite> select (max(date_sent)-min(date_sent))/count(*) from message join message_outgoing using (message_pk) where status = 2;
+(max(date_sent)-min(date_sent))/count(*)
+0.00894308185577393
+sqlite> select 1/((max(date_sent)-min(date_sent))/count(*)) from message join message_outgoing using (message_pk) where status = 2;
+1/((max(date_sent)-min(date_sent))/count(*))
+111.818276532309
